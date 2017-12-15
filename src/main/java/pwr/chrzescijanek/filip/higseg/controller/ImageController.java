@@ -315,6 +315,7 @@ public class ImageController extends BaseController implements Initializable {
 		bindScrollPaneSize();
 		initializeStyle();
 		initializeComboBoxes();
+		picker.setValue(Color.BLACK);
 	}
 
 	private void bindScrollPaneSize() {

@@ -60,7 +60,7 @@
         <top>
             <HBox fx:id="alignTopHBox" alignment="CENTER">
                 <Label fx:id="alignInfo"
-                       text="Load images to add them together."/>
+                       text="Load binary images to add them. Black will be converted to the chosen color."/>
             </HBox>
         </top>
         <center>
@@ -87,7 +87,8 @@
                     <RowConstraints minHeight="40.0"/>
                 </rowConstraints>
                 <Label fx:id="alignImageSizeLabel"/>
-                <HBox fx:id="modeBox" GridPane.columnIndex="1" alignment="CENTER" minHeight="40.0" spacing="30.0">
+                <HBox fx:id="modeBox" GridPane.columnIndex="1" alignment="CENTER" minHeight="40.0" spacing="15.0">
+                    <Label text="Conversion color:"/>
                 	<ColorPicker fx:id="picker"/>
                 </HBox>
                 <ComboBox fx:id="alignScaleCombo" editable="true" prefWidth="80.0" visibleRowCount="5"
