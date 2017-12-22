@@ -15,8 +15,10 @@
 <?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.CheckMenuItem?>
 <?import javafx.scene.control.RadioMenuItem?>
 <?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ColorPicker?>
 <GridPane xmlns:fx="http://javafx.com/fxml/1" fx:id="root" styleClass="root" xmlns="http://javafx.com/javafx/8.0.60"
@@ -27,8 +29,10 @@
     </rowConstraints>
     <MenuBar fx:id="menuBar" GridPane.rowIndex="0">
         <Menu fx:id="fileMenu" text="_File">
-            <MenuItem fx:id="fileMenuExportToPng" text="_Save result" onAction="#exportToPng"
+            <MenuItem fx:id="fileMenuExportToPng" text="_Save image" onAction="#exportToPng"
                       accelerator="Shortcut+S"/>
+            <MenuItem fx:id="fileMenuSaveStats" text="_Export statistics" onAction="#saveStats"
+                      accelerator="Shortcut+E"/>
             <MenuItem fx:id="alignMenuLoadImages" text="_Load image" onAction="#loadImages"
                       accelerator="Shortcut+L"/>
             <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
@@ -36,6 +40,7 @@
         <Menu fx:id="editMenu" text="_Edit">
             <MenuItem fx:id="editMenuZoomIn" text="Zoom _in" onAction="#zoomIn" accelerator="Shortcut+Add"/>
             <MenuItem fx:id="editMenuZoomOut" text="Zoom _out" onAction="#zoomOut" accelerator="Shortcut+Subtract"/>
+            <CheckMenuItem fx:id="editMenuCells" text="_Show cells" onAction="#showCells" accelerator="F3"/>
             <MenuItem fx:id="editMenuClear" text="_Clear" onAction="#clear" accelerator="Shortcut+Delete"/>
         </Menu>
         <Menu fx:id="optionsMenu" text="_Options">
@@ -60,7 +65,7 @@
         <top>
             <HBox fx:id="alignTopHBox" alignment="CENTER">
                 <Label fx:id="alignInfo"
-                       text="Load binary images to add them. Black will be converted to the chosen color."/>
+                       text="Load grayscale images to stack them up as layers. Black will be converted to the chosen color."/>
             </HBox>
         </top>
         <center>
@@ -78,10 +83,11 @@
         <bottom>
             <GridPane fx:id="alignBottomGrid">
                 <columnConstraints>
-                    <ColumnConstraints percentWidth="30.0"/>
+                    <ColumnConstraints percentWidth="15.0" halignment="CENTER"/>
                     <ColumnConstraints percentWidth="40.0" halignment="CENTER"/>
                     <ColumnConstraints percentWidth="15.0" halignment="RIGHT"/>
                     <ColumnConstraints percentWidth="15.0" halignment="RIGHT"/>
+                    <ColumnConstraints percentWidth="15.0" halignment="CENTER"/>
                 </columnConstraints>
                 <rowConstraints>
                     <RowConstraints minHeight="40.0"/>
@@ -91,9 +97,10 @@
                     <Label text="Conversion color:"/>
                 	<ColorPicker fx:id="picker"/>
                 </HBox>
+                <CheckBox fx:id="showCells" text="Show cells" onAction="#showCells" GridPane.columnIndex="2"/>
                 <ComboBox fx:id="alignScaleCombo" editable="true" prefWidth="80.0" visibleRowCount="5"
-                          GridPane.columnIndex="2"/>
-                <Label fx:id="alignMousePositionLabel" text="- : -" GridPane.columnIndex="3"/>
+                          GridPane.columnIndex="3"/>
+                <Label fx:id="alignMousePositionLabel" text="- : -" GridPane.columnIndex="4"/>
             </GridPane>
         </bottom>
     </BorderPane>

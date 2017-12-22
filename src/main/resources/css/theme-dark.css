@@ -154,3 +154,11 @@
 .modal-dialog {
     -fx-background-color: #666;
 }
+
+.check-box {
+    -fx-text-fill: #eee;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #eee;
+}

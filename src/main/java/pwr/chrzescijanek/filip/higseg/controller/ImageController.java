@@ -3,16 +3,29 @@ package pwr.chrzescijanek.filip.higseg.controller;
 import static org.opencv.imgcodecs.Imgcodecs.imencode;
 import static pwr.chrzescijanek.filip.higseg.util.Utils.startTask;
 
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
+import org.opencv.core.Core;
 import org.opencv.core.CvException;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
+import org.opencv.core.Point;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
+
+import com.google.gson.Gson;
 
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -25,7 +38,10 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DialogPane;
@@ -44,17 +60,26 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
+import javafx.stage.Stage;
 import pwr.chrzescijanek.filip.higseg.util.StageUtils;
+import pwr.chrzescijanek.filip.higseg.util.StatsDto;
 import pwr.chrzescijanek.filip.higseg.util.Utils;
 
 /**
  * Application controller class.
  */
 public class ImageController extends BaseController implements Initializable {
+	
+	private static final Logger LOGGER = Logger.getLogger(ImageController.class.getName());
 
-    private final ObjectProperty<Mat> image = new SimpleObjectProperty<>();
+    private final ObjectProperty<Mat> rawImage = new SimpleObjectProperty<>();
+    private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
+    private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
+    private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
+    private final Map<String, Integer> imageStats = new HashMap<>();
    
 	@FXML MenuItem fileMenuExportToPng;
+	@FXML MenuItem fileMenuSaveStats;
 	@FXML GridPane root;
     @FXML MenuBar menuBar;
     @FXML Menu fileMenu;
@@ -64,6 +89,7 @@ public class ImageController extends BaseController implements Initializable {
 	@FXML MenuItem alignMenuLoadImages;
     @FXML MenuItem editMenuZoomIn;
     @FXML MenuItem editMenuZoomOut;
+    @FXML CheckMenuItem editMenuCells;
 	@FXML Menu optionsMenu;
 	@FXML Menu optionsMenuTheme;
 	@FXML RadioMenuItem optionsMenuThemeDark;
@@ -84,6 +110,7 @@ public class ImageController extends BaseController implements Initializable {
 	@FXML Label alignImageSizeLabel;
 	@FXML ComboBox<String> alignScaleCombo;
 	@FXML Label alignMousePositionLabel;
+	@FXML CheckBox showCells;
 
 	@FXML
 	void about() {
@@ -91,6 +118,11 @@ public class ImageController extends BaseController implements Initializable {
 		final DialogPane dialogPane = alert.getDialogPane();
 		injectStylesheets(dialogPane);
 		alert.show();
+	}
+
+	@FXML
+	void showCells() {
+		setImage();
 	}
 	
 	@FXML
@@ -180,13 +212,25 @@ public class ImageController extends BaseController implements Initializable {
 	}
 	
 	private Task<? extends Void> createLoadImagesTask(final File selectedFile) {
+		final Stage dialog = showPopup("Loading images...");
 		return new Task<Void>() {
 			@Override
 			protected Void call() throws Exception {
 				loadImages(selectedFile);
+				Platform.runLater(() -> dialog.close());
 				return null;
 			}
 		};
+	}
+
+	private Stage showPopup(final String info) {
+		final Stage dialog = StageUtils.initDialog(root.getScene().getWindow());
+		final HBox box = Utils.getHBoxWithLabelAndProgressIndicator(info);
+		final Scene scene = new Scene(box);
+		injectStylesheets(box);
+		dialog.setScene(scene);
+		dialog.show();
+		return dialog;
 	}
 	
 	private void loadImages(final File selectedFile) {
@@ -194,18 +238,30 @@ public class ImageController extends BaseController implements Initializable {
 			try {
 				filePath = selectedFile.getCanonicalPath();
 				final Mat image = getImage(filePath);
-				final Mat currentImage = this.image.isNull().get() ? new Mat(0, 0, image.type()) : this.image.get();
+				final Mat cells = saveStats(filePath, image);
+				final Mat currentImage = this.rawImage.isNull().get() ? new Mat(0, 0, CvType.CV_8UC3) : this.rawImage.get();
+				final Mat currentCells = this.cells.isNull().get() ? new Mat(0, 0, CvType.CV_8UC3) : this.cells.get();
 				final Mat newImage = new Mat(Math.max(currentImage.rows(), image.rows()), 
-						Math.max(currentImage.cols(), image.cols()), image.type());
+						Math.max(currentImage.cols(), image.cols()), currentImage.type());
+				final Mat newCells = new Mat(Math.max(currentCells.rows(), cells.rows()), 
+						Math.max(currentCells.cols(), cells.cols()), currentCells.type());
 				
 				final byte[] newData = initializeNewData(newImage);
+				final byte[] newCellsData = initializeNewData(newCells);
+				
 				final int newWidth = newImage.width();
 				
 				paintCurrentImage(currentImage, newData, newWidth);				
 				paintNewImage(image, newData, newWidth);
+
+				paintCurrentImage(currentCells, newCellsData, newWidth);				
+				paintNewImage(cells, newCellsData, newWidth);
 				
 				newImage.put(0, 0, newData);
-				Platform.runLater(() -> setImage(newImage));
+				this.rawImage.set(newImage);
+				newCells.put(0, 0, newCellsData);
+				this.cells.set(newCells);
+				Platform.runLater(() -> setImage());
 			} catch (IOException | CvException e) {
 				handleException(e,
 				                "Loading failed!\nImages might be corrupted, paths may contain non-ASCII symbols or "
@@ -246,31 +302,57 @@ public class ImageController extends BaseController implements Initializable {
 		final int width = image.width();
 		
 		Color c = picker.getValue();
-		byte defaultB = (byte) (c.getBlue() * 255);
-		byte defaultG = (byte) (c.getGreen() * 255);
-		byte defaultR = (byte) (c.getRed() * 255);
+		double defaultB = c.getBlue() * 255;
+		double defaultG = c.getGreen() * 255;
+		double defaultR = c.getRed() * 255;
 
-		final byte[] data = new byte[(int) image.total() * 3];				
+		final byte[] data = new byte[(int) image.total()];				
 		image.get(0, 0, data);				
 		for (int i = 0; i < image.rows(); i++) {
 			for (int j = 0; j < image.cols(); j++) {
-				byte b = data[(i * width + j) * 3];
-				byte g = data[(i * width + j) * 3 + 1];
-				byte r = data[(i * width + j) * 3 + 2];
-				if (b == 0 && g == 0 && r == 0) {
-					newData[(i * newWidth + j) * 3] = b == 0 ? defaultB : newData[(i * newWidth + j) * 3];
-					newData[(i * newWidth + j) * 3 + 1] = g == 0 ? defaultG : newData[(i * newWidth + j) * 3 + 1]; 
-					newData[(i * newWidth + j) * 3 + 2] = r == 0 ? defaultR : newData[(i * newWidth + j) * 3 + 2];
-				}
+				double ratio = 1.0 - Byte.toUnsignedInt(data[(i * width + j)]) / 255.0;
+				newData[(i * newWidth + j) * 3 + 0] = (byte) (ratio * defaultB + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 0]);
+				newData[(i * newWidth + j) * 3 + 1] = (byte) (ratio * defaultG + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 1]); 
+				newData[(i * newWidth + j) * 3 + 2] = (byte) (ratio * defaultR + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 2]);
 			}
 		}
 	}
 	
 	private Mat getImage(final String filePath) {
-		final Mat image = Imgcodecs.imread(filePath, Imgcodecs.CV_LOAD_IMAGE_COLOR);
+		final Mat image = Imgcodecs.imread(filePath, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
 		if (image.dataAddr() == 0)
 			throw new CvException("Failed to load image! Check if file path contains only ASCII symbols");
 		return image;
+	}
+
+	private Mat saveStats(final String filePath, final Mat image) {
+		Mat result = new Mat();
+        Imgproc.threshold(image, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+		Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 6);
+        Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 4);
+        Mat inverted = new Mat();
+        Core.bitwise_not(result, inverted);
+        imageStats.put(filePath, Imgproc.connectedComponents(inverted, new Mat()));
+        logInfo(filePath);
+        return result;
+	}
+
+	@FXML
+    void saveStats() {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(Utils.getTxtFile(root.getScene().getWindow())))) {
+        	double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
+        	Map<String, Double> cellRatios = imageStats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
+			bw.write(new Gson().toJson(new StatsDto(imageStats, cellRatios)));
+        } catch (IOException e) {
+        	handleException(e, "Save failed! Check your write permissions.");
+		}
+    }
+
+	private void logInfo(final String filePath) {
+		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
+		LOGGER.info("Loaded image: " + filePath);
+        LOGGER.info("Cells: " + imageStats);
+        LOGGER.info("Percentage: " + imageStats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum)));
 	}
 
 	@FXML
@@ -288,8 +370,10 @@ public class ImageController extends BaseController implements Initializable {
 
 	@FXML
 	void clear() {
-        image.set(null);
+        rawImage.set(null);
+        cells.set(null);
         alignImageSizeLabel.setText("");
+        imageStats.clear();
 	}
 	
 	@Override
@@ -307,8 +391,10 @@ public class ImageController extends BaseController implements Initializable {
 	
 	private void setBindings() {
 		setVisibilityBindings();
-        ObjectBinding<Image> binding = Bindings.createObjectBinding(() -> image.isNull().get() ? null : createImage(image.get()), image);
-		alignImageView.imageProperty().bind(binding);
+        ObjectBinding<Image> rawImageBinding = Bindings.createObjectBinding(() -> rawImage.isNull().get() ? null : createImage(rawImage.get()), rawImage);
+        ObjectBinding<Image> cellsBinding = Bindings.createObjectBinding(() -> cells.isNull().get() ? null : createImage(cells.get()), cells);
+		fxRawImage.bind(rawImageBinding);
+		fxCells.bind(cellsBinding);
 	}
 	
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
@@ -316,6 +402,7 @@ public class ImageController extends BaseController implements Initializable {
 		initializeStyle();
 		initializeComboBoxes();
 		picker.setValue(Color.BLACK);
+		showCells.selectedProperty().bindBidirectional(editMenuCells.selectedProperty());
 	}
 
 	private void bindScrollPaneSize() {
@@ -437,14 +524,19 @@ public class ImageController extends BaseController implements Initializable {
 		alignImageViewGroup.visibleProperty().bind(alignImageIsPresent);
 		alignScaleCombo.visibleProperty().bind(alignImageIsPresent);
 		alignMousePositionLabel.visibleProperty().bind(alignImageIsPresent);
+		showCells.visibleProperty().bind(alignImageIsPresent);
 		fileMenuExportToPng.disableProperty().bind(alignImageIsPresent.not());
+		fileMenuSaveStats.disableProperty().bind(alignImageIsPresent.not());
 		editMenuZoomIn.disableProperty().bind(alignImageIsPresent.not());
 		editMenuZoomOut.disableProperty().bind(alignImageIsPresent.not());
+		editMenuCells.disableProperty().bind(alignImageIsPresent.not());
 	}
 	
-	void setImage(Mat img) {
-        image.set(img);
-        alignImageSizeLabel.setText(img.width() + "x" + img.height() + " px");
+	void setImage() {
+        Mat mat = showCells.isSelected() ? cells.get() : rawImage.get();
+        Image img = showCells.isSelected() ? fxCells.get() : fxRawImage.get();
+		alignImageView.setImage(img);
+        alignImageSizeLabel.setText(mat.width() + "x" + mat.height() + " px");
      }
 
     private Image createImage(final Mat image) {
@@ -465,7 +557,8 @@ public class ImageController extends BaseController implements Initializable {
             @Override
             protected Void call() throws Exception {
                 try {
-                    Utils.writeImage(image.get(), selectedFile);
+                    Mat img = showCells.isSelected() ? cells.get() : rawImage.get();
+                    Utils.writeImage(img, selectedFile);
                 } catch (final IOException e) {
                     handleException(e, "Save failed! Check your write permissions.");
                 }

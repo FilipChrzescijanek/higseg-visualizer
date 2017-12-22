@@ -38,12 +38,12 @@ public final class StageUtils {
 	 */
 	public static Alert getAboutDialog() {
 		final Alert alert = new Alert(AlertType.INFORMATION,
-		                              "Histopathological images segmentator\n" +
-		                              "GitHub repository: https://github.com/FilipChrzescijanek/higseg/\n" +
+		                              "Histopathological images segmentator visualizer\n" +
+		                              "GitHub repository: https://github.com/FilipChrzescijanek/higseg-visualizer/\n" +
 		                              "\nCopyright © 2018 Filip Chrześcijanek\nfilip.chrzescijanek@gmail.com",
 		                              ButtonType.OK);
 		alert.setTitle("About");
-		alert.setHeaderText("higseg");
+		alert.setHeaderText("higseg visualizer");
 		alert.setGraphic(new ImageView(new Image(StageUtils.class.getResourceAsStream("/images/icon-big.png"))));
 		((Stage) alert.getDialogPane().getScene().getWindow())
 				.getIcons().add(new Image(StageUtils.class.getResourceAsStream("/images/icon-small.png")));

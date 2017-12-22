@@ -2,22 +2,10 @@ package pwr.chrzescijanek.filip.higseg.util;
 
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.opencv.core.Mat;
-
-import com.bpodgursky.jbool_expressions.Expression;
-import com.bpodgursky.jbool_expressions.parsers.ExprParser;
-import com.bpodgursky.jbool_expressions.rules.RuleSet;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -31,16 +19,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
-import pwr.chrzescijanek.filip.fuzzyclassifier.Classifier;
-import pwr.chrzescijanek.filip.fuzzyclassifier.data.raw.Stats;
-import pwr.chrzescijanek.filip.fuzzyclassifier.model.Rule;
-import pwr.chrzescijanek.filip.fuzzyclassifier.model.SimpleClassifier;
-import pwr.chrzescijanek.filip.fuzzyclassifier.model.SimpleModel;
-import pwr.chrzescijanek.filip.fuzzyclassifier.postprocessor.BasicDefuzzifier;
-import pwr.chrzescijanek.filip.fuzzyclassifier.postprocessor.CustomDefuzzifier;
-import pwr.chrzescijanek.filip.fuzzyclassifier.postprocessor.Defuzzifier;
-import pwr.chrzescijanek.filip.fuzzyclassifier.type.one.TypeOneRule;
-import pwr.chrzescijanek.filip.fuzzyclassifier.type.two.TypeTwoRule;
 
 /**
  * Provides utility methods for handling controllers.
@@ -64,77 +42,16 @@ public final class Utils {
 		imwrite(selectedFile.getCanonicalPath(), image);
 	}
 
-	public static Classifier loadModel(String filePath) throws IOException {
-		return loadModel(new File(filePath));
-	}
-
-	public static Classifier loadModel(File file) throws IOException {
-		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-			List<String> lines = br.lines().collect(Collectors.toList());
-			int type = Integer.parseInt(lines.get(0));
-			List<String> classValues = getClassValues(lines.get(1));
-			List<Rule> rules = getRules(lines.get(2), type);
-			Map<String, Double> means = getMeans(lines.get(3));
-			Map<String, Double> variances = getVariances(lines.get(4));
-			Defuzzifier defuzzifier = lines.size() > 5 ? 
-					new CustomDefuzzifier(getSharpValues(lines.get(5))) 
-					: new BasicDefuzzifier(classValues);
-			return new SimpleClassifier(new SimpleModel(classValues, rules, new Stats(means, variances)), defuzzifier);
-		}
-	}
-
-	private static List<String> getClassValues(String string) {
-		String[] inputs = string.replace("[", "").replaceAll("]", "").trim().split("\\s*,\\s*");
-		return Arrays.asList(inputs);
-	}
-
-	private static List<Rule> getRules(String string, int type) {
-		String[] inputs = string.replace("[", "").replaceAll("]", "").trim().split("\\s*,\\s*");
-		List<Rule> rules = new ArrayList<>();
-		for (String input : inputs) {
-			String[] parts = input.split("\\s*=\\s*");
-			String clazz = parts[0];
-			String expression = parts[1];
-			Expression<String> expr = RuleSet.simplify(ExprParser.parse(expression));
-			rules.add(type == 1 ? new TypeOneRule(clazz, expr) : new TypeTwoRule(clazz, expr));
-		}
-		return rules;
-	}
-
-	private static Map<String, Double> getMeans(String string) {
-		return parseMap(string);
-	}
-
-	private static Map<String, Double> getVariances(String string) {
-		return parseMap(string);
-	}
-	
-    private static Map<String, Double> getSharpValues(String string) {
-		return parseMap(string);
-	}
-    
-    private static Map<String, Double> parseMap(String string) {
-    	Map<String, Double> map = new HashMap<>();
-		String[] inputs = string.replace("{", "").replace("}", "").trim().split("\\s*,\\s*");
-		for (String input : inputs) {
-			String[] parts = input.split("\\s*=\\s*");
-			String attribute = parts[0];
-			Double value = Double.parseDouble(parts[1]);
-			map.put(attribute, value);
-		}
-		return map;
-    }
-
 	/**
 	 * Shows file chooser dialog and gets CSV file.
 	 *
 	 * @param window application window
 	 * @return CSV file
 	 */
-	public static File getCSVFile(final Window window) {
+	public static File getTxtFile(final Window window) {
 		final FileChooser fileChooser = new FileChooser();
-		fileChooser.setTitle("Export results to CSV file");
-		fileChooser.getExtensionFilters().add(new ExtensionFilter("Comma-separated values", "*.csv"));
+		fileChooser.setTitle("Export statistics to TXT file");
+		fileChooser.getExtensionFilters().add(new ExtensionFilter("Text files", "*.txt"));
 		return fileChooser.showSaveDialog(window);
 	}
 
