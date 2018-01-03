@@ -151,6 +151,15 @@
     -fx-text-fill: #eee;
 }
 
+.text-area {
+    -fx-text-fill: #eee;
+}
+
+.text-area .content {
+    -fx-cursor: none;
+    -fx-background-color: #666;
+}
+
 .modal-dialog {
     -fx-background-color: #666;
 }

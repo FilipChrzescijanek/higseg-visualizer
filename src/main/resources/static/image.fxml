@@ -21,6 +21,9 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ColorPicker?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.geometry.Insets?>
 <GridPane xmlns:fx="http://javafx.com/fxml/1" fx:id="root" styleClass="root" xmlns="http://javafx.com/javafx/8.0.60"
           fx:controller="pwr.chrzescijanek.filip.higseg.controller.ImageController">
     <rowConstraints>
@@ -91,6 +94,7 @@
                 </columnConstraints>
                 <rowConstraints>
                     <RowConstraints minHeight="40.0"/>
+                    <RowConstraints minHeight="40.0"/>
                 </rowConstraints>
                 <Label fx:id="alignImageSizeLabel"/>
                 <HBox fx:id="modeBox" GridPane.columnIndex="1" alignment="CENTER" minHeight="40.0" spacing="15.0">
@@ -101,6 +105,12 @@
                 <ComboBox fx:id="alignScaleCombo" editable="true" prefWidth="80.0" visibleRowCount="5"
                           GridPane.columnIndex="3"/>
                 <Label fx:id="alignMousePositionLabel" text="- : -" GridPane.columnIndex="4"/>
+                <TitledPane text="Show statistics" GridPane.rowIndex="1" GridPane.columnSpan="5" expanded="false">
+                	<GridPane.margin>
+                		<Insets bottom="10.0" left="10.0" right="10.0" />
+                	</GridPane.margin>
+                	<TextArea fx:id="stats" text="" editable="false" wrapText="true" prefHeight="60.0" maxHeight="120.0"/>
+                </TitledPane>
             </GridPane>
         </bottom>
     </BorderPane>

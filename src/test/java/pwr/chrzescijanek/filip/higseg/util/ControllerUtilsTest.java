@@ -1,16 +1,16 @@
 package pwr.chrzescijanek.filip.higseg.util;
 
-import javafx.scene.paint.Color;
-import org.junit.Test;
-
 import static javafx.scene.paint.Color.ALICEBLUE;
 import static javafx.scene.paint.Color.BLACK;
 import static javafx.scene.paint.Color.GRAY;
 import static javafx.scene.paint.Color.WHITE;
 import static javafx.scene.paint.Color.color;
 import static org.junit.Assert.assertEquals;
-
 import static pwr.chrzescijanek.filip.higseg.util.Utils.getWebColor;
+
+import org.junit.Test;
+
+import javafx.scene.paint.Color;
 
 public class ControllerUtilsTest {
 

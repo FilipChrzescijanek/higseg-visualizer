@@ -6,6 +6,9 @@ import java.io.File;
 import java.io.IOException;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -40,6 +43,14 @@ public final class Utils {
 	
 	public static void writeImage(final Mat image, final File selectedFile) throws IOException {
 		imwrite(selectedFile.getCanonicalPath(), image);
+	}
+	
+	public static void extractCells(Mat image, Mat result) {        
+		Imgproc.threshold(image, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+		Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 2);
+	    Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 2);
+		Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 7);
+	    Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5)), new Point(5.0/2, 5.0/2), 3);
 	}
 
 	/**

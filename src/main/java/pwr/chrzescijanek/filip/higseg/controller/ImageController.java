@@ -20,8 +20,6 @@ import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
-import org.opencv.core.Point;
-import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
@@ -51,6 +49,7 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -111,6 +110,7 @@ public class ImageController extends BaseController implements Initializable {
 	@FXML ComboBox<String> alignScaleCombo;
 	@FXML Label alignMousePositionLabel;
 	@FXML CheckBox showCells;
+	@FXML TextArea stats;
 
 	@FXML
 	void about() {
@@ -311,9 +311,9 @@ public class ImageController extends BaseController implements Initializable {
 		for (int i = 0; i < image.rows(); i++) {
 			for (int j = 0; j < image.cols(); j++) {
 				double ratio = 1.0 - Byte.toUnsignedInt(data[(i * width + j)]) / 255.0;
-				newData[(i * newWidth + j) * 3 + 0] = (byte) (ratio * defaultB + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 0]);
-				newData[(i * newWidth + j) * 3 + 1] = (byte) (ratio * defaultG + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 1]); 
-				newData[(i * newWidth + j) * 3 + 2] = (byte) (ratio * defaultR + (1.0 - ratio) * newData[(i * newWidth + j) * 3 + 2]);
+				newData[(i * newWidth + j) * 3 + 0] = (byte) (ratio * defaultB + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 0]));
+				newData[(i * newWidth + j) * 3 + 1] = (byte) (ratio * defaultG + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 1])); 
+				newData[(i * newWidth + j) * 3 + 2] = (byte) (ratio * defaultR + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 2]));
 			}
 		}
 	}
@@ -327,9 +327,7 @@ public class ImageController extends BaseController implements Initializable {
 
 	private Mat saveStats(final String filePath, final Mat image) {
 		Mat result = new Mat();
-        Imgproc.threshold(image, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
-		Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 6);
-        Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 4);
+		Utils.extractCells(image, result);
         Mat inverted = new Mat();
         Core.bitwise_not(result, inverted);
         imageStats.put(filePath, Imgproc.connectedComponents(inverted, new Mat()));
@@ -351,8 +349,15 @@ public class ImageController extends BaseController implements Initializable {
 	private void logInfo(final String filePath) {
 		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
 		LOGGER.info("Loaded image: " + filePath);
-        LOGGER.info("Cells: " + imageStats);
-        LOGGER.info("Percentage: " + imageStats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum)));
+		StringBuilder sb = new StringBuilder();
+		imageStats.forEach((k, v) -> {
+			String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
+			String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v, formatted);
+	        LOGGER.info(row);
+	        sb.append(row);
+			sb.append(System.lineSeparator());
+		});
+        stats.setText(sb.toString());
 	}
 
 	@FXML
@@ -373,7 +378,9 @@ public class ImageController extends BaseController implements Initializable {
         rawImage.set(null);
         cells.set(null);
         alignImageSizeLabel.setText("");
+        stats.setText("");
         imageStats.clear();
+        setImage();
 	}
 	
 	@Override
@@ -536,7 +543,9 @@ public class ImageController extends BaseController implements Initializable {
         Mat mat = showCells.isSelected() ? cells.get() : rawImage.get();
         Image img = showCells.isSelected() ? fxCells.get() : fxRawImage.get();
 		alignImageView.setImage(img);
-        alignImageSizeLabel.setText(mat.width() + "x" + mat.height() + " px");
+		if (mat != null) {
+			alignImageSizeLabel.setText(mat.width() + "x" + mat.height() + " px");
+		}
      }
 
     private Image createImage(final Mat image) {

@@ -19,8 +19,6 @@ import org.opencv.core.Core;
 import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.Point;
-import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
@@ -209,9 +207,7 @@ public class Main {
 
 	private Mat saveStats(final String filePath, final Mat image) {
 		Mat result = new Mat();
-        Imgproc.threshold(image, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
-		Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 6);
-        Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)), new Point(3.0/2, 3.0/2), 4);
+		Utils.extractCells(image, result);
         Mat inverted = new Mat();
         Core.bitwise_not(result, inverted);
         imageStats.put(filePath, Imgproc.connectedComponents(inverted, new Mat()));
