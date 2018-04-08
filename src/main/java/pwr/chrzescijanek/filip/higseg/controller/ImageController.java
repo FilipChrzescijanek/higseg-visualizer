@@ -9,21 +9,26 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.opencv.core.Core;
-import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
-
-import com.google.gson.Gson;
 
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -36,21 +41,15 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
-import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
-import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.ScrollEvent;
@@ -60,291 +59,360 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
-import pwr.chrzescijanek.filip.higseg.util.StageUtils;
-import pwr.chrzescijanek.filip.higseg.util.StatsDto;
+import pwr.chrzescijanek.filip.fuzzyclassifier.Classifier;
+import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestDataSet;
+import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestRecord;
+import pwr.chrzescijanek.filip.higseg.util.Coordinates;
+import pwr.chrzescijanek.filip.higseg.util.ModelData;
+import pwr.chrzescijanek.filip.higseg.util.ModelDto;
 import pwr.chrzescijanek.filip.higseg.util.Utils;
 
 /**
  * Application controller class.
  */
 public class ImageController extends BaseController implements Initializable {
-	
+
 	private static final Logger LOGGER = Logger.getLogger(ImageController.class.getName());
 
-    private final ObjectProperty<Mat> rawImage = new SimpleObjectProperty<>();
-    private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
-    private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
-    private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
-    private final Map<String, Integer> imageStats = new HashMap<>();
-   
-	@FXML MenuItem fileMenuExportToPng;
-	@FXML MenuItem fileMenuSaveStats;
-	@FXML GridPane root;
-    @FXML MenuBar menuBar;
-    @FXML Menu fileMenu;
-    @FXML MenuItem fileMenuExit;
-    @FXML ColorPicker picker;
-    @FXML Menu editMenu;
-	@FXML MenuItem alignMenuLoadImages;
-    @FXML MenuItem editMenuZoomIn;
-    @FXML MenuItem editMenuZoomOut;
-    @FXML CheckMenuItem editMenuCells;
-	@FXML Menu optionsMenu;
-	@FXML Menu optionsMenuTheme;
-	@FXML RadioMenuItem optionsMenuThemeDark;
-	@FXML ToggleGroup themeToggleGroup;
-	@FXML RadioMenuItem optionsMenuThemeLight;
-	@FXML HBox modeBox;
-	@FXML Menu helpMenu;
-	@FXML MenuItem helpMenuHelp;
-	@FXML MenuItem helpMenuAbout;
-    @FXML BorderPane borderPane;
-	@FXML HBox alignTopHBox;
-	@FXML Label alignInfo;
-	@FXML ScrollPane alignScrollPane;
-	@FXML Group alignImageViewGroup;
-	@FXML AnchorPane alignImageViewAnchor;
-	@FXML ImageView alignImageView;
-	@FXML GridPane alignBottomGrid;
-	@FXML Label alignImageSizeLabel;
-	@FXML ComboBox<String> alignScaleCombo;
-	@FXML Label alignMousePositionLabel;
-	@FXML CheckBox showCells;
-	@FXML TextArea stats;
+	private final ObjectProperty<Mat> rawImage = new SimpleObjectProperty<>();
+	private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
+	private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
+	private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
+	private final Map<String, Integer> imageStats = new HashMap<>();
 
 	@FXML
-	void about() {
-		final Alert alert = StageUtils.getAboutDialog();
-		final DialogPane dialogPane = alert.getDialogPane();
-		injectStylesheets(dialogPane);
-		alert.show();
-	}
+	MenuItem fileMenuExportToPng;
+	@FXML
+	MenuItem fileMenuSaveStats;
+	@FXML
+	GridPane root;
+	@FXML
+	MenuBar menuBar;
+	@FXML
+	Menu fileMenu;
+	@FXML
+	MenuItem fileMenuExit;
+	@FXML
+	Menu editMenu;
+	@FXML
+	MenuItem alignMenuLoadImages;
+	@FXML
+	MenuItem editMenuZoomIn;
+	@FXML
+	MenuItem editMenuZoomOut;
+	@FXML
+	CheckMenuItem editMenuCells;
+	@FXML
+	HBox modeBox;
+	@FXML
+	Menu helpMenu;
+	@FXML
+	MenuItem helpMenuHelp;
+	@FXML
+	MenuItem helpMenuAbout;
+	@FXML
+	BorderPane borderPane;
+	@FXML
+	HBox alignTopHBox;
+	@FXML
+	Label alignInfo;
+	@FXML
+	ScrollPane alignScrollPane;
+	@FXML
+	Group alignImageViewGroup;
+	@FXML
+	AnchorPane alignImageViewAnchor;
+	@FXML
+	ImageView alignImageView;
+	@FXML
+	GridPane alignBottomGrid;
+	@FXML
+	Label alignImageSizeLabel;
+	@FXML
+	ComboBox<String> alignScaleCombo;
+	@FXML
+	Label alignMousePositionLabel;
+	@FXML
+	CheckBox showCells;
+	@FXML
+	TextArea stats;
 
 	@FXML
 	void showCells() {
 		setImage();
 	}
-	
+
 	@FXML
 	void applyDarkTheme() {
 		setDarkTheme();
 	}
-	
+
 	@FXML
 	void applyLightTheme() {
 		setLightTheme();
 	}
-	
-    @FXML
-    void exit() {
-        root.getScene().getWindow().hide();
-    }
-	
+
+	@FXML
+	void exit() {
+		root.getScene().getWindow().hide();
+	}
+
 	@FXML
 	void zoomIn() {
 		updateScrollbars(alignImageView, alignScrollPane, 1);
 	}
-	
+
 	private void updateScrollbars(final ImageView imageView, final ScrollPane imageScrollPane, final double deltaY) {
 		final double oldScale = imageView.getScaleX();
 		final double hValue = imageScrollPane.getHvalue();
 		final double vValue = imageScrollPane.getVvalue();
 		if (deltaY > 0) {
 			imageView.setScaleX(imageView.getScaleX() * 1.05);
-		}
-		else {
+		} else {
 			imageView.setScaleX(imageView.getScaleX() / 1.05);
 		}
 		final double scale = imageView.getScaleX();
 		validateScrollbars(imageView, imageScrollPane, scale, oldScale, hValue, vValue);
 	}
-	
+
 	private void validateScrollbars(final ImageView imageView, final ScrollPane imageScrollPane, final double scale,
-	                                final double oldScale, final double hValue, final double vValue) {
+			final double oldScale, final double hValue, final double vValue) {
 		validateHorizontalScrollbar(imageView, imageScrollPane, scale, oldScale, hValue);
 		validateVerticalScrollbar(imageView, imageScrollPane, scale, oldScale, vValue);
 	}
-	
+
 	private void validateHorizontalScrollbar(final ImageView imageView, final ScrollPane imageScrollPane,
-	                                         final double scale, final double oldScale, final double hValue) {
+			final double scale, final double oldScale, final double hValue) {
 		if ((scale * imageView.getImage().getWidth() > imageScrollPane.getWidth())) {
 			final double oldHDenominator = calculateDenominator(oldScale, imageView.getImage().getWidth(),
-			                                                    imageScrollPane.getWidth());
+					imageScrollPane.getWidth());
 			final double newHDenominator = calculateDenominator(scale, imageView.getImage().getWidth(),
-			                                                    imageScrollPane.getWidth());
+					imageScrollPane.getWidth());
 			imageScrollPane.setHvalue(calculateValue(scale, oldScale, hValue, oldHDenominator, newHDenominator));
 		}
 	}
-	
-	private void validateVerticalScrollbar(final ImageView imageView, final ScrollPane imageScrollPane, final double
-			scale, final double
-			                                       oldScale, final double vValue) {
+
+	private void validateVerticalScrollbar(final ImageView imageView, final ScrollPane imageScrollPane,
+			final double scale, final double oldScale, final double vValue) {
 		if ((scale * imageView.getImage().getHeight() > imageScrollPane.getHeight())) {
 			final double oldVDenominator = calculateDenominator(oldScale, imageView.getImage().getHeight(),
-			                                                    imageScrollPane.getHeight());
+					imageScrollPane.getHeight());
 			final double newVDenominator = calculateDenominator(scale, imageView.getImage().getHeight(),
-			                                                    imageScrollPane.getHeight());
+					imageScrollPane.getHeight());
 			imageScrollPane.setVvalue(calculateValue(scale, oldScale, vValue, oldVDenominator, newVDenominator));
 		}
 	}
-	
+
 	private double calculateDenominator(final double scale, final double imageSize, final double paneSize) {
 		return (scale * imageSize - paneSize) * 2 / paneSize;
 	}
-	
-	private double calculateValue(final double scale, final double oldScale, final double value, final double
-			oldDenominator, final double newDenominator) {
+
+	private double calculateValue(final double scale, final double oldScale, final double value,
+			final double oldDenominator, final double newDenominator) {
 		return ((scale - 1) + (value * oldDenominator - (oldScale - 1)) / oldScale * scale) / newDenominator;
 	}
-	
+
 	@FXML
 	void zoomOut() {
 		updateScrollbars(alignImageView, alignScrollPane, -1);
 	}
 
-	@FXML
-	void loadImages() {
-		final File selectedFile = Utils.getLoadImageFile(root.getScene().getWindow());
-		if (selectedFile != null) {
-			final Task<? extends Void> task = createLoadImagesTask(selectedFile);
-			startTask(task);
+	void addImage(final Mat image, final String filePath, List<ModelData> models, Stage newStage, DialogListener dialogListener) {
+		final byte[] data = new byte[(int) image.total() * 3];
+		image.get(0, 0, data);
+
+		for (ModelData m : models) {
+			final Mat cells = getCells(image, m.getModel(), m.getName());
+			paint(cells, data, m.getColor());
 		}
-	}
-	
-	private Task<? extends Void> createLoadImagesTask(final File selectedFile) {
-		final Stage dialog = showPopup("Loading images...");
-		return new Task<Void>() {
-			@Override
-			protected Void call() throws Exception {
-				loadImages(selectedFile);
-				Platform.runLater(() -> dialog.close());
-				return null;
-			}
-		};
+
+		final Mat newImage = new Mat(image.size(), image.type());
+		newImage.put(0, 0, data);
+
+		this.rawImage.set(image);
+		this.cells.set(newImage);
+		Platform.runLater(() -> {
+			setImage();
+			logInfo(filePath);
+	        newStage.show();
+	        dialogListener.decrement();
+		});
 	}
 
-	private Stage showPopup(final String info) {
-		final Stage dialog = StageUtils.initDialog(root.getScene().getWindow());
-		final HBox box = Utils.getHBoxWithLabelAndProgressIndicator(info);
-		final Scene scene = new Scene(box);
-		injectStylesheets(box);
-		dialog.setScene(scene);
-		dialog.show();
-		return dialog;
-	}
-	
-	private void loadImages(final File selectedFile) {
-			final String filePath;
-			try {
-				filePath = selectedFile.getCanonicalPath();
-				final Mat image = getImage(filePath);
-				final Mat cells = saveStats(filePath, image);
-				final Mat currentImage = this.rawImage.isNull().get() ? new Mat(0, 0, CvType.CV_8UC3) : this.rawImage.get();
-				final Mat currentCells = this.cells.isNull().get() ? new Mat(0, 0, CvType.CV_8UC3) : this.cells.get();
-				final Mat newImage = new Mat(Math.max(currentImage.rows(), image.rows()), 
-						Math.max(currentImage.cols(), image.cols()), currentImage.type());
-				final Mat newCells = new Mat(Math.max(currentCells.rows(), cells.rows()), 
-						Math.max(currentCells.cols(), cells.cols()), currentCells.type());
-				
-				final byte[] newData = initializeNewData(newImage);
-				final byte[] newCellsData = initializeNewData(newCells);
-				
-				final int newWidth = newImage.width();
-				
-				paintCurrentImage(currentImage, newData, newWidth);				
-				paintNewImage(image, newData, newWidth);
-
-				paintCurrentImage(currentCells, newCellsData, newWidth);				
-				paintNewImage(cells, newCellsData, newWidth);
-				
-				newImage.put(0, 0, newData);
-				this.rawImage.set(newImage);
-				newCells.put(0, 0, newCellsData);
-				this.cells.set(newCells);
-				Platform.runLater(() -> setImage());
-			} catch (IOException | CvException e) {
-				handleException(e,
-				                "Loading failed!\nImages might be corrupted, paths may contain non-ASCII symbols or "
-				                + "you do not have sufficient read permissions.");
-			}
-	}
-
-	private byte[] initializeNewData(final Mat newImage) {
-		final byte[] newData = new byte[(int) newImage.total() * 3];
-		
-		for (int i = 0; i < newData.length; i++) {
-			newData[i] = (byte) 255;
-		}
-		
-		return newData;
-	}
-	
-
-	private void paintCurrentImage(final Mat currentImage, final byte[] newData, final int newWidth) {
-		final byte[] currentData = new byte[(int) currentImage.total() * 3];
-		currentImage.get(0, 0, currentData);
-		
-		final int currentWidth = currentImage.width();
-		
-		for (int i = 0; i < currentImage.rows(); i++) {
-			for (int j = 0; j < currentImage.cols(); j++) {
-				byte b = currentData[(i * currentWidth + j) * 3];
-				byte g = currentData[(i * currentWidth + j) * 3 + 1];
-				byte r = currentData[(i * currentWidth + j) * 3 + 2];
-				newData[(i * newWidth + j) * 3] = b;
-				newData[(i * newWidth + j) * 3 + 1] = g; 
-				newData[(i * newWidth + j) * 3 + 2] = r;
-			}
-		}
-	}
-
-	private void paintNewImage(final Mat image, final byte[] newData, final int newWidth) {
-		final int width = image.width();
-		
-		Color c = picker.getValue();
+	private void paint(final Mat image, final byte[] newData, Color c) {
 		double defaultB = c.getBlue() * 255;
 		double defaultG = c.getGreen() * 255;
 		double defaultR = c.getRed() * 255;
 
-		final byte[] data = new byte[(int) image.total()];				
-		image.get(0, 0, data);				
+		final byte[] data = new byte[(int) image.total()];
+		image.get(0, 0, data);
+
+		int width = image.width();
+
 		for (int i = 0; i < image.rows(); i++) {
 			for (int j = 0; j < image.cols(); j++) {
-				double ratio = 1.0 - Byte.toUnsignedInt(data[(i * width + j)]) / 255.0;
-				newData[(i * newWidth + j) * 3 + 0] = (byte) (ratio * defaultB + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 0]));
-				newData[(i * newWidth + j) * 3 + 1] = (byte) (ratio * defaultG + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 1])); 
-				newData[(i * newWidth + j) * 3 + 2] = (byte) (ratio * defaultR + (1.0 - ratio) * Byte.toUnsignedInt(newData[(i * newWidth + j) * 3 + 2]));
+				if (Byte.toUnsignedInt(data[(i * width + j)]) > 0) {
+					newData[(i * width + j) * 3 + 0] = (byte) defaultB;
+					newData[(i * width + j) * 3 + 1] = (byte) defaultG;
+					newData[(i * width + j) * 3 + 2] = (byte) defaultR;
+				}
 			}
 		}
 	}
-	
-	private Mat getImage(final String filePath) {
-		final Mat image = Imgcodecs.imread(filePath, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
-		if (image.dataAddr() == 0)
-			throw new CvException("Failed to load image! Check if file path contains only ASCII symbols");
-		return image;
+
+	private Map<List<String>, TestRecord> getMapping(List<String> attributes,
+			Map<List<String>, Set<Coordinates>> initialMappings) {
+		Set<List<String>> uniqueValues = initialMappings.keySet();
+		return Utils.getMapping(attributes, uniqueValues);
 	}
 
-	private Mat saveStats(final String filePath, final Mat image) {
-		Mat result = new Mat();
-		Utils.extractCells(image, result);
-        Mat inverted = new Mat();
-        Core.bitwise_not(result, inverted);
-        imageStats.put(filePath, Imgproc.connectedComponents(inverted, new Mat()));
-        logInfo(filePath);
-        return result;
+	private Mat process(Mat image, Map<TestRecord, Set<Coordinates>> mapping, String morphOperations) {
+		Mat result = Utils.createMat(image, mapping);
+		Imgproc.threshold(result, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+		for (char c : morphOperations.toCharArray()) {
+			if (c == 'e') {
+				Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)),
+						new Point(3.0 / 2, 3.0 / 2), 1);
+			} else if (c == 'd') {
+				Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)),
+						new Point(3.0 / 2, 3.0 / 2), 1);
+			}
+		}
+		return result;
+	}
+
+	private Mat getCells(final Mat image, final ModelDto model, final String modelName) {
+		Classifier c = Utils.getClassifier(model);
+
+		List<String> attributes = Arrays.asList("Hue", "Saturation", "Value");
+		Map<List<String>, Set<Coordinates>> initialMappings = Utils.getInitialMapping(image);
+
+		Map<List<String>, TestRecord> mapping = getMapping(attributes, initialMappings);
+		List<TestRecord> uniqueTestRecords = new ArrayList<>(mapping.values());
+
+		c.test(new TestDataSet(attributes, uniqueTestRecords));
+
+		Mat result = process(image, initialMappings.entrySet().parallelStream()
+				.collect(Collectors.toMap(e -> mapping.get(e.getKey()), e -> e.getValue())), model.getMorphOps());
+
+		Mat labels = new Mat();
+		Mat inverted = new Mat();
+		Core.bitwise_not(result, inverted);
+		int connectedComponents = Imgproc.connectedComponents(inverted, labels) - 1;
+
+		Map<Integer, int[]> stats = new HashMap<>();
+
+		for (int i = 0; i < connectedComponents; i++) {
+			stats.put(i, new int[4]);
+		}
+
+		for (int i = 0; i < stats.size(); i++) {
+			stats.get(i)[0] = -1;
+			stats.get(i)[1] = -1;
+			stats.get(i)[2] = -1;
+			stats.get(i)[3] = -1;
+		}
+
+		final int[] currentData = new int[(int) labels.total()];
+		labels.get(0, 0, currentData);
+
+		int width = labels.width();
+
+		for (int i = 0; i < labels.rows(); i++) {
+			for (int j = 0; j < labels.cols(); j++) {
+				int label = currentData[(i * width + j)] - 1;
+				if (label >= 0) {
+					if (stats.get(label)[0] < 0 || stats.get(label)[0] > j) {
+						stats.get(label)[0] = j;
+					}
+					if (stats.get(label)[1] < j) {
+						stats.get(label)[1] = j;
+					}
+					if (stats.get(label)[2] < 0 || stats.get(label)[2] > i) {
+						stats.get(label)[2] = i;
+					}
+					if (stats.get(label)[3] < i) {
+						stats.get(label)[3] = i;
+					}
+				}
+			}
+		}
+
+		stats = stats.entrySet().stream()
+				.filter(entry -> entry.getValue()[0] != 0 && entry.getValue()[1] != (labels.cols() - 1)
+						&& entry.getValue()[2] != 0 && entry.getValue()[3] != (labels.rows() - 1))
+				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+		int margin = 5;
+
+		Map<Integer, Mat> images = new HashMap<>();
+		stats.forEach((k, v) -> {
+			Mat mat = new Mat(v[3] - v[2] + 1 + 2 * margin, v[1] - v[0] + 1 + 2 * margin, CvType.CV_8UC1,
+					new Scalar(0));
+			images.put(k, mat);
+		});
+
+		for (int i = 0; i < labels.rows(); i++) {
+			for (int j = 0; j < labels.cols(); j++) {
+				int label = currentData[(i * width + j)] - 1;
+				if (label >= 0 && images.containsKey(label)) {
+					int startRow = stats.get(label)[2];
+					int startCol = stats.get(label)[0];
+					images.get(label).put(i - startRow + margin, j - startCol + margin, new byte[] { -1 });
+				}
+			}
+		}
+
+		List<Mat> imgs = new ArrayList<>(images.values());
+
+		int size = 56;
+		List<Mat> newImages = new ArrayList<>();
+		imgs.forEach(v -> {
+			double w = v.width();
+			double h = v.height();
+			double scale = w > h ? size / w : size / h;
+			Imgproc.resize(v, v, new Size(), scale, scale, Imgproc.INTER_CUBIC);
+			Mat newImage = new Mat(size, size, CvType.CV_8UC1, new Scalar(0));
+			int newW = v.width();
+			int newH = v.height();
+			v.copyTo(newImage.rowRange((size - newH) / 2, (size - newH) / 2 + newH).colRange((size - newW) / 2,
+					(size - newW) / 2 + newW));
+
+			newImages.add(newImage);
+		});
+
+		imageStats.put(modelName, quantify(newImages, labels));
+		return inverted;
+	}
+
+	private Integer quantify(List<Mat> newImages, Mat labels) {
+		String tmp = "tmp" + new Date().getTime();
+		File dir = new File(tmp);
+		dir.mkdirs();
+		for (int i = 0; i < newImages.size(); i++) {
+			Imgcodecs.imwrite(tmp + "/image_" + i + ".png", newImages.get(i));
+		}
+		Imgcodecs.imwrite(tmp + "/labels.png", labels);
+		return newImages.size();
 	}
 
 	@FXML
-    void saveStats() {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(Utils.getTxtFile(root.getScene().getWindow())))) {
-        	double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
-        	Map<String, Double> cellRatios = imageStats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() / sum));
-			bw.write(new Gson().toJson(new StatsDto(imageStats, cellRatios)));
-        } catch (IOException e) {
-        	handleException(e, "Save failed! Check your write permissions.");
+	void saveStats() {
+		try (BufferedWriter bw = new BufferedWriter(new FileWriter(Utils.getTxtFile(root.getScene().getWindow())))) {
+			double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
+			StringBuilder sb = new StringBuilder();
+			imageStats.forEach((k, v) -> {
+				String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
+				String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v,
+						formatted);
+				sb.append(row);
+				sb.append(System.lineSeparator());
+			});
+			bw.write(sb.toString());
+		} catch (IOException e) {
+			handleException(e, "Save failed! Check your write permissions.");
 		}
-    }
+	}
 
 	private void logInfo(final String filePath) {
 		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
@@ -353,62 +421,53 @@ public class ImageController extends BaseController implements Initializable {
 		imageStats.forEach((k, v) -> {
 			String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
 			String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v, formatted);
-	        LOGGER.info(row);
-	        sb.append(row);
+			LOGGER.info(row);
+			sb.append(row);
 			sb.append(System.lineSeparator());
 		});
-        stats.setText(sb.toString());
+		stats.setText(sb.toString());
 	}
 
 	@FXML
-    void exportToPng() {
-        final File selectedFile = Utils.getImageFile(root.getScene().getWindow());
-        final Task<? extends Void> task = new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                writeImage(selectedFile);
-                return null;
-            }
-        };
-        startTask(task);
-    }
-
-	@FXML
-	void clear() {
-        rawImage.set(null);
-        cells.set(null);
-        alignImageSizeLabel.setText("");
-        stats.setText("");
-        imageStats.clear();
-        setImage();
+	void exportToPng() {
+		final File selectedFile = Utils.getImageFile(root.getScene().getWindow());
+		final Task<? extends Void> task = new Task<Void>() {
+			@Override
+			protected Void call() throws Exception {
+				writeImage(selectedFile);
+				return null;
+			}
+		};
+		startTask(task);
 	}
-	
+
 	@Override
 	public void initialize(final URL location, final ResourceBundle resources) {
 		initializeComponents(location, resources);
 		setBindings();
 		addListeners();
 	}
-	
+
 	private void addListeners() {
 		addOnMouseReleasedListeners();
 		setImageViewControls(alignImageView, alignScrollPane, alignImageViewGroup, alignScaleCombo,
-		                     alignMousePositionLabel);
+				alignMousePositionLabel);
 	}
-	
+
 	private void setBindings() {
 		setVisibilityBindings();
-        ObjectBinding<Image> rawImageBinding = Bindings.createObjectBinding(() -> rawImage.isNull().get() ? null : createImage(rawImage.get()), rawImage);
-        ObjectBinding<Image> cellsBinding = Bindings.createObjectBinding(() -> cells.isNull().get() ? null : createImage(cells.get()), cells);
+		ObjectBinding<Image> rawImageBinding = Bindings
+				.createObjectBinding(() -> rawImage.isNull().get() ? null : createImage(rawImage.get()), rawImage);
+		ObjectBinding<Image> cellsBinding = Bindings
+				.createObjectBinding(() -> cells.isNull().get() ? null : createImage(cells.get()), cells);
 		fxRawImage.bind(rawImageBinding);
 		fxCells.bind(cellsBinding);
 	}
-	
+
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
 		bindScrollPaneSize();
 		initializeStyle();
 		initializeComboBoxes();
-		picker.setValue(Color.BLACK);
 		showCells.selectedProperty().bindBidirectional(editMenuCells.selectedProperty());
 	}
 
@@ -422,45 +481,36 @@ public class ImageController extends BaseController implements Initializable {
 			alignImageViewGroup.getScene().setCursor(Cursor.DEFAULT);
 		});
 	}
-	
+
 	private void initializeComboBoxes() {
 		initializeScaleComboBoxes();
 	}
-	
+
 	private void initializeScaleComboBoxes() {
-		alignScaleCombo.itemsProperty().get().addAll(
-			"25%", "50%", "75%", "100%", "125%", "150%", "175%", "200%", "250%", "500%", "1000%"
-		);
+		alignScaleCombo.itemsProperty().get().addAll("25%", "50%", "75%", "100%", "125%", "150%", "175%", "200%",
+				"250%", "500%", "1000%");
 		alignScaleCombo.setValue("100%");
 	}
-	
+
 	private void initializeStyle() {
 		injectStylesheets(root);
-		if (isLightThemeSelected()) {
-			themeToggleGroup.selectToggle(optionsMenuThemeLight);
-		}
-		else {
-			themeToggleGroup.selectToggle(optionsMenuThemeDark);
-		}
 	}
-	
+
 	private void setImageViewControls(final ImageView imageView, final ScrollPane imageScrollPane,
-	                                  final Group imageViewGroup, final ComboBox<String> scaleCombo,
-	                                  final Label mousePositionLabel) {
+			final Group imageViewGroup, final ComboBox<String> scaleCombo, final Label mousePositionLabel) {
 		setImageViewGroupListeners(imageView, imageScrollPane, imageViewGroup, mousePositionLabel);
 		setImageScrollPaneEventFilter(imageView, imageScrollPane);
 		setImageViewScaleListener(imageView, imageScrollPane, scaleCombo);
 		setComboBoxListener(imageView, scaleCombo);
 	}
-	
+
 	private void setImageViewGroupListeners(final ImageView imageView, final ScrollPane imageScrollPane,
-	                                        final Group imageViewGroup, final Label mousePositionLabel) {
-		imageViewGroup.setOnMouseMoved(event -> mousePositionLabel.setText(
-				(((int) event.getX())) + " : " + (((int) event.getY()))));
+			final Group imageViewGroup, final Label mousePositionLabel) {
+		imageViewGroup.setOnMouseMoved(
+				event -> mousePositionLabel.setText((((int) event.getX())) + " : " + (((int) event.getY()))));
 		imageViewGroup.setOnMouseExited(event -> mousePositionLabel.setText("- : -"));
 		imageViewGroup.setOnMouseDragged(event -> {
-			mousePositionLabel.setText(
-					(((int) event.getX())) + " : " + (((int) event.getY())));
+			mousePositionLabel.setText((((int) event.getX())) + " : " + (((int) event.getY())));
 		});
 		imageViewGroup.setOnScroll(event -> {
 			if (event.isControlDown() && imageView.getImage() != null) {
@@ -469,7 +519,7 @@ public class ImageController extends BaseController implements Initializable {
 			}
 		});
 	}
-	
+
 	private void setImageScrollPaneEventFilter(final ImageView imageView, final ScrollPane imageScrollPane) {
 		imageScrollPane.addEventFilter(ScrollEvent.ANY, event -> {
 			if (event.isControlDown() && imageView.getImage() != null) {
@@ -479,9 +529,9 @@ public class ImageController extends BaseController implements Initializable {
 			}
 		});
 	}
-	
+
 	private void setImageViewScaleListener(final ImageView imageView, final ScrollPane imageScrollPane,
-	                                       final ComboBox<String> scaleCombo) {
+			final ComboBox<String> scaleCombo) {
 		imageView.scaleXProperty().addListener((observable, oldValue, newValue) -> {
 			final double oldScale = oldValue.doubleValue();
 			final double hValue = imageScrollPane.getHvalue();
@@ -498,21 +548,20 @@ public class ImageController extends BaseController implements Initializable {
 		view.setTranslateX(view.getImage().getWidth() * 0.5 * (view.getScaleX() - 1.0));
 		view.setTranslateY(view.getImage().getHeight() * 0.5 * (view.getScaleY() - 1.0));
 	}
-	
-	private void updateScrollbars(final ImageView imageView, final ScrollPane imageScrollPane,
-	                              final double oldScale, final double hValue, final double vValue, final double
-			                              scale) {
+
+	private void updateScrollbars(final ImageView imageView, final ScrollPane imageScrollPane, final double oldScale,
+			final double hValue, final double vValue, final double scale) {
 		if (Math.round(oldScale * 100) != Math.round(scale * 100)) {
 			validateScrollbars(imageView, imageScrollPane, scale, oldScale, hValue, vValue);
 		}
 	}
-	
+
 	private void updateComboBox(final ComboBox<String> scaleCombo, final Number newValue) {
 		final String asString = String.format("%.0f%%", newValue.doubleValue() * 100);
 		if (!scaleCombo.getValue().equals(asString))
 			scaleCombo.setValue(asString);
 	}
-	
+
 	private void setComboBoxListener(final ImageView imageView, final ComboBox<String> scaleCombo) {
 		scaleCombo.valueProperty().addListener((observable, oldValue, newValue) -> {
 			if (!newValue.matches("[1-9]\\d*%"))
@@ -521,11 +570,11 @@ public class ImageController extends BaseController implements Initializable {
 				imageView.setScaleX(Double.parseDouble(newValue.substring(0, newValue.length() - 1)) / 100.0);
 		});
 	}
-	
+
 	private void setVisibilityBindings() {
 		onAlignImageIsPresent();
 	}
-	
+
 	private void onAlignImageIsPresent() {
 		final BooleanBinding alignImageIsPresent = alignImageView.imageProperty().isNotNull();
 		alignImageViewGroup.visibleProperty().bind(alignImageIsPresent);
@@ -538,43 +587,42 @@ public class ImageController extends BaseController implements Initializable {
 		editMenuZoomOut.disableProperty().bind(alignImageIsPresent.not());
 		editMenuCells.disableProperty().bind(alignImageIsPresent.not());
 	}
-	
+
 	void setImage() {
-        Mat mat = showCells.isSelected() ? cells.get() : rawImage.get();
-        Image img = showCells.isSelected() ? fxCells.get() : fxRawImage.get();
+		Mat mat = showCells.isSelected() ? cells.get() : rawImage.get();
+		Image img = showCells.isSelected() ? fxCells.get() : fxRawImage.get();
 		alignImageView.setImage(img);
 		if (mat != null) {
 			alignImageSizeLabel.setText(mat.width() + "x" + mat.height() + " px");
 		}
-     }
+	}
 
-    private Image createImage(final Mat image) {
-        final MatOfByte byteMat = new MatOfByte();
-        imencode(".png", image, byteMat);
-        return new Image(new ByteArrayInputStream(byteMat.toArray()));
-    }
+	private Image createImage(final Mat image) {
+		final MatOfByte byteMat = new MatOfByte();
+		imencode(".png", image, byteMat);
+		return new Image(new ByteArrayInputStream(byteMat.toArray()));
+	}
 
-    void writeImage(File selectedFile) {
-        if (selectedFile != null) {
-            final Task<Void> task = createWriteImagesTask(selectedFile);
-            startTask(task);
-        }
-    }
+	void writeImage(File selectedFile) {
+		if (selectedFile != null) {
+			final Task<Void> task = createWriteImagesTask(selectedFile);
+			startTask(task);
+		}
+	}
 
-    private Task<Void> createWriteImagesTask(final File selectedFile) {
-        return new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                try {
-                    Mat img = showCells.isSelected() ? cells.get() : rawImage.get();
-                    Utils.writeImage(img, selectedFile);
-                } catch (final IOException e) {
-                    handleException(e, "Save failed! Check your write permissions.");
-                }
-                return null;
-            }
-        };
-    }
-    
+	private Task<Void> createWriteImagesTask(final File selectedFile) {
+		return new Task<Void>() {
+			@Override
+			protected Void call() throws Exception {
+				try {
+					Mat img = showCells.isSelected() ? cells.get() : rawImage.get();
+					Utils.writeImage(img, selectedFile);
+				} catch (final IOException e) {
+					handleException(e, "Save failed! Check your write permissions.");
+				}
+				return null;
+			}
+		};
+	}
+
 }
-

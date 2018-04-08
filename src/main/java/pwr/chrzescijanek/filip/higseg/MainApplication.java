@@ -19,7 +19,7 @@ public class MainApplication extends Application {
 	 */
 	@Override
 	public void start(final Stage primaryStage) throws Exception {
-		final FXView fxView = new FXView("/static/image.fxml");
+		final FXView fxView = new FXView("/static/main.fxml");
 		prepareStage(primaryStage, "higseg-visualizer", fxView);
 		primaryStage.setOnCloseRequest(event -> Platform.exit());
 		primaryStage.show();

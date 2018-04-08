@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<GridPane xmlns:fx="http://javafx.com/fxml/1" fx:id="root" styleClass="root" xmlns="http://javafx.com/javafx/8.0.60"
+          fx:controller="pwr.chrzescijanek.filip.higseg.controller.Controller">
+    <rowConstraints>
+        <RowConstraints vgrow="NEVER" />
+        <RowConstraints vgrow="ALWAYS" />
+        <RowConstraints vgrow="ALWAYS" />
+    </rowConstraints>
+    <columnConstraints>
+        <ColumnConstraints hgrow="ALWAYS"/>
+    </columnConstraints>
+    <MenuBar fx:id="menuBar" GridPane.rowIndex="0">
+        <Menu fx:id="fileMenu" text="_File">
+            <MenuItem fx:id="alignMenuLoadImages" text="_Load images" onAction="#loadImages"
+                      accelerator="Shortcut+L"/>
+            <MenuItem fx:id="alignMenuLoadModels" text="_Load models" onAction="#loadModels"
+                      accelerator="Shortcut+M"/>
+            <MenuItem fx:id="alignMenuClearModels" text="_Clear models" onAction="#clearModels"
+                      accelerator="Shortcut+R"/>
+            <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
+        </Menu>
+        <Menu fx:id="optionsMenu" text="_Options">
+            <Menu fx:id="optionsMenuTheme" text="_Theme">
+                <RadioMenuItem fx:id="optionsMenuThemeDark" text="_Dark" onAction="#applyDarkTheme"
+                               accelerator="Shortcut+Alt+Shift+D">
+                    <toggleGroup>
+                        <ToggleGroup fx:id="themeToggleGroup"/>
+                    </toggleGroup>
+                </RadioMenuItem>
+                <RadioMenuItem fx:id="optionsMenuThemeLight" text="_Light" onAction="#applyLightTheme"
+                               toggleGroup="$themeToggleGroup"
+                               accelerator="Shortcut+Alt+Shift+L"/>
+            </Menu>
+        </Menu>
+        <Menu fx:id="helpMenu" text="_Help">
+            <MenuItem fx:id="helpMenuHelp" text="_Help" onAction="#help" accelerator="F1"/>
+            <MenuItem fx:id="helpMenuAbout" text="_About" onAction="#about"/>
+        </Menu>
+    </MenuBar>
+    <GridPane fx:id="alignMainPane" GridPane.rowIndex="1">
+        <columnConstraints>
+            <ColumnConstraints hgrow="ALWAYS" minWidth="150.0"/>
+            <ColumnConstraints hgrow="ALWAYS" minWidth="150.0"/>
+        </columnConstraints>
+        <rowConstraints>
+            <RowConstraints vgrow="ALWAYS" minHeight="50.0"/>
+            <RowConstraints vgrow="ALWAYS" minHeight="50.0"/>
+        </rowConstraints>
+        <VBox spacing="5" GridPane.rowIndex="0" GridPane.columnIndex="0" alignment="center">
+            <padding>
+                <Insets left="5" right="5" top="5" bottom="5"/>
+            </padding>
+            <Button fx:id="loadImagesButton" text="Load images" onAction="#loadImages"
+                    prefWidth="120.0" GridPane.columnIndex="1"/>
+        </VBox>
+        <VBox spacing="5" GridPane.rowIndex="0" GridPane.columnIndex="1" alignment="center">
+            <padding>
+                <Insets left="5" right="5" top="5" bottom="5"/>
+            </padding>
+            <Button fx:id="loadModelsButton" text="Load models" onAction="#loadModels"
+                    prefWidth="120.0" GridPane.columnIndex="1"/>
+        </VBox>
+        <VBox fx:id="models" spacing="5" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="center">
+            <padding>
+                <Insets left="5" right="5" top="5" bottom="5"/>
+            </padding>
+        </VBox>
+    </GridPane>
+</GridPane>

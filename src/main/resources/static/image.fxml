@@ -36,41 +36,18 @@
                       accelerator="Shortcut+S"/>
             <MenuItem fx:id="fileMenuSaveStats" text="_Export statistics" onAction="#saveStats"
                       accelerator="Shortcut+E"/>
-            <MenuItem fx:id="alignMenuLoadImages" text="_Load image" onAction="#loadImages"
-                      accelerator="Shortcut+L"/>
             <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
         </Menu>
         <Menu fx:id="editMenu" text="_Edit">
             <MenuItem fx:id="editMenuZoomIn" text="Zoom _in" onAction="#zoomIn" accelerator="Shortcut+Add"/>
             <MenuItem fx:id="editMenuZoomOut" text="Zoom _out" onAction="#zoomOut" accelerator="Shortcut+Subtract"/>
             <CheckMenuItem fx:id="editMenuCells" text="_Show cells" onAction="#showCells" accelerator="F3"/>
-            <MenuItem fx:id="editMenuClear" text="_Clear" onAction="#clear" accelerator="Shortcut+Delete"/>
-        </Menu>
-        <Menu fx:id="optionsMenu" text="_Options">
-            <Menu fx:id="optionsMenuTheme" text="_Theme">
-                <RadioMenuItem fx:id="optionsMenuThemeDark" text="_Dark" onAction="#applyDarkTheme"
-                               accelerator="Shortcut+Alt+Shift+D">
-                    <toggleGroup>
-                        <ToggleGroup fx:id="themeToggleGroup"/>
-                    </toggleGroup>
-                </RadioMenuItem>
-                <RadioMenuItem fx:id="optionsMenuThemeLight" text="_Light" onAction="#applyLightTheme"
-                               toggleGroup="$themeToggleGroup"
-                               accelerator="Shortcut+Alt+Shift+L"/>
-            </Menu>
         </Menu>
         <Menu fx:id="helpMenu" text="_Help">
             <MenuItem fx:id="helpMenuHelp" text="_Help" onAction="#help" accelerator="F1"/>
-            <MenuItem fx:id="helpMenuAbout" text="_About" onAction="#about"/>
         </Menu>
     </MenuBar>
     <BorderPane fx:id="borderPane" GridPane.rowIndex="1">
-        <top>
-            <HBox fx:id="alignTopHBox" alignment="CENTER">
-                <Label fx:id="alignInfo"
-                       text="Load grayscale images to stack them up as layers. Black will be converted to the chosen color."/>
-            </HBox>
-        </top>
         <center>
             <ScrollPane fx:id="alignScrollPane">
                 <Group fx:id="alignImageViewGroup" autoSizeChildren="false">
@@ -97,10 +74,6 @@
                     <RowConstraints minHeight="40.0"/>
                 </rowConstraints>
                 <Label fx:id="alignImageSizeLabel"/>
-                <HBox fx:id="modeBox" GridPane.columnIndex="1" alignment="CENTER" minHeight="40.0" spacing="15.0">
-                    <Label text="Conversion color:"/>
-                	<ColorPicker fx:id="picker"/>
-                </HBox>
                 <CheckBox fx:id="showCells" text="Show cells" onAction="#showCells" GridPane.columnIndex="2"/>
                 <ComboBox fx:id="alignScaleCombo" editable="true" prefWidth="80.0" visibleRowCount="5"
                           GridPane.columnIndex="3"/>

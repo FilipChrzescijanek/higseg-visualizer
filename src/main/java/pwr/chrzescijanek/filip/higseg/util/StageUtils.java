@@ -104,7 +104,7 @@ public final class StageUtils {
 	 */
 	public static void prepareStage(final Stage stage, final String title, final FXView view) {
 		setTitleAndIcon(stage, title);
-		if (title.equals("higseg")) {
+		if (title.startsWith("higseg")) {
 			setScene(stage, view, 480, 300);
 		} else {
 			setScene(stage, view, 800, 600);
