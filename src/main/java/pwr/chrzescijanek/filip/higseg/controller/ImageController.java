@@ -3,14 +3,20 @@ package pwr.chrzescijanek.filip.higseg.controller;
 import static org.opencv.imgcodecs.Imgcodecs.imencode;
 import static pwr.chrzescijanek.filip.higseg.util.Utils.startTask;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -217,7 +223,8 @@ public class ImageController extends BaseController implements Initializable {
 		updateScrollbars(alignImageView, alignScrollPane, -1);
 	}
 
-	void addImage(final Mat image, final String filePath, List<ModelData> models, Stage newStage, DialogListener dialogListener) {
+	void addImage(final Mat image, final String filePath, List<ModelData> models, Stage newStage,
+			DialogListener dialogListener) {
 		final byte[] data = new byte[(int) image.total() * 3];
 		image.get(0, 0, data);
 
@@ -234,8 +241,8 @@ public class ImageController extends BaseController implements Initializable {
 		Platform.runLater(() -> {
 			setImage();
 			logInfo(filePath);
-	        newStage.show();
-	        dialogListener.decrement();
+			newStage.show();
+			dialogListener.decrement();
 		});
 	}
 
@@ -381,19 +388,50 @@ public class ImageController extends BaseController implements Initializable {
 			newImages.add(newImage);
 		});
 
-		imageStats.put(modelName, quantify(newImages, labels));
+		imageStats.put(modelName, quantify(newImages));
 		return inverted;
 	}
 
-	private Integer quantify(List<Mat> newImages, Mat labels) {
+	private Integer quantify(List<Mat> newImages) {
 		String tmp = "tmp" + new Date().getTime();
+		saveImages(newImages, tmp);
+		int quantity = callPython(newImages, tmp);
+		cleanUp(tmp);
+		return quantity;
+	}
+
+	private void saveImages(List<Mat> newImages, String tmp) {
 		File dir = new File(tmp);
 		dir.mkdirs();
 		for (int i = 0; i < newImages.size(); i++) {
 			Imgcodecs.imwrite(tmp + "/image_" + i + ".png", newImages.get(i));
 		}
-		Imgcodecs.imwrite(tmp + "/labels.png", labels);
-		return newImages.size();
+	}
+
+	private int callPython(List<Mat> newImages, String tmp) {
+		ProcessBuilder pb = new ProcessBuilder("py", "quantify.py", tmp);
+		int quantity = newImages.size();
+		try {
+			Process pr = pb.start();
+			BufferedReader in = new BufferedReader(new InputStreamReader(pr.getInputStream()));
+			String line = in.readLine();
+			pr.waitFor();
+			in.close();
+			quantity = Integer.parseInt(line);
+		} catch (IOException | InterruptedException e) {
+			handleException(e,
+					"Python script execution failed! Check if you have Python 3.6 installed and \"py\" added to your path.");
+		}
+		return quantity;
+	}
+
+	private void cleanUp(String tmp) {
+		Path root = Paths.get(tmp);
+		try {
+			Files.walk(root).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+		} catch (IOException e) {
+			handleException(e, "Deleting temporary directory failed! You may have to clean-up manually.");
+		}
 	}
 
 	@FXML

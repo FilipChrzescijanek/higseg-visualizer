@@ -47,7 +47,8 @@
             <ColumnConstraints hgrow="ALWAYS" minWidth="150.0"/>
         </columnConstraints>
         <rowConstraints>
-            <RowConstraints vgrow="ALWAYS" minHeight="50.0"/>
+            <RowConstraints vgrow="NEVER" minHeight="80.0"/>
+            <RowConstraints vgrow="NEVER" minHeight="50.0"/>
             <RowConstraints vgrow="ALWAYS" minHeight="50.0"/>
         </rowConstraints>
         <VBox spacing="5" GridPane.rowIndex="0" GridPane.columnIndex="0" alignment="center">
@@ -64,7 +65,13 @@
             <Button fx:id="loadModelsButton" text="Load models" onAction="#loadModels"
                     prefWidth="120.0" GridPane.columnIndex="1"/>
         </VBox>
-        <VBox fx:id="models" spacing="5" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="center">
+        <VBox spacing="5" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="center">
+            <HBox maxWidth="300">
+            	<Label text="Model" minWidth="200" maxWidth="200"/>
+            	<Label text="Color"/> 
+            </HBox>
+        </VBox>
+        <VBox fx:id="models" spacing="5" GridPane.rowIndex="2" GridPane.columnIndex="0" GridPane.columnSpan="2" alignment="center">
             <padding>
                 <Insets left="5" right="5" top="5" bottom="5"/>
             </padding>

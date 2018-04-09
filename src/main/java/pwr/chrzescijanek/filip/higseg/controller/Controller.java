@@ -24,7 +24,6 @@ import javafx.collections.ObservableMap;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -155,8 +154,13 @@ public class Controller extends BaseController implements Initializable {
 
 	private List<ModelData> getModelsData() {
 		return data.entrySet().stream()
-				.map(e -> new ModelData(loadModel(e), e.getValue().getValue(), e.getKey().getName()))
+				.map(e -> new ModelData(loadModel(e), e.getValue().getValue(), getModelName(e.getKey())))
 				.collect(Collectors.toList());
+	}
+	
+	private String getModelName(File f) {
+		String name = f.getName();
+		return name.substring(0, name.indexOf(".hgmodel"));
 	}
 
 	private ModelDto loadModel(Entry<File, ColorPicker> entry) {
@@ -199,11 +203,11 @@ public class Controller extends BaseController implements Initializable {
 	}
 
 	private void addDiaminobenzidine() {
-		addRow("/default-ii-dab.hgmodel", Color.CHOCOLATE);
+		addRow("/positive.hgmodel", Color.CHOCOLATE);
 	}
 
 	private void addHaematoxylin() {
-		addRow("/default-ii-h.hgmodel", Color.INDIGO);
+		addRow("/negative.hgmodel", Color.INDIGO);
 	}
 
 	private void addRow(String resource, Color color) {
@@ -211,12 +215,11 @@ public class Controller extends BaseController implements Initializable {
 		cp.setValue(color);
 		File file = new File(getClass().getResource(resource).getFile());
 		data.put(file, cp);
-		Label label = new Label(file.getName());
-		label.setMinWidth(150.0);
+		Label label = new Label(getModelName(file));
+		label.setMinWidth(200.0);
+		label.setMaxWidth(200.0);
 		HBox hBox = new HBox(label, cp);
 		hBox.setMaxWidth(300.0);
-		hBox.setSpacing(20.0);
-		hBox.setAlignment(Pos.CENTER);
 		models.getChildren().add(hBox);
 	}
 
@@ -250,7 +253,7 @@ public class Controller extends BaseController implements Initializable {
 		for (File f : selectedFiles) {
 			ColorPicker cp = new ColorPicker();
 			data.put(f, cp);
-			models.getChildren().add(new HBox(new Label(f.getName()), cp));
+			models.getChildren().add(new HBox(new Label(getModelName(f)), cp));
 		}
 	}
 
