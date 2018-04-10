@@ -3,7 +3,9 @@ package pwr.chrzescijanek.filip.higseg.controller;
 import static pwr.chrzescijanek.filip.higseg.util.Utils.getImageFiles;
 import static pwr.chrzescijanek.filip.higseg.util.Utils.startTask;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
@@ -54,6 +56,8 @@ public class Controller extends BaseController implements Initializable {
 
 	@FXML
 	GridPane root;
+	@FXML
+	MenuItem fileMenuSaveStats;
 	@FXML
 	MenuItem alignMenuLoadModels;
 	@FXML
@@ -157,7 +161,7 @@ public class Controller extends BaseController implements Initializable {
 				.map(e -> new ModelData(loadModel(e), e.getValue().getValue(), getModelName(e.getKey())))
 				.collect(Collectors.toList());
 	}
-	
+
 	private String getModelName(File f) {
 		String name = f.getName();
 		return name.substring(0, name.indexOf(".hgmodel"));
@@ -197,7 +201,7 @@ public class Controller extends BaseController implements Initializable {
 
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
 		initializeStyle();
-
+		fileMenuSaveStats.disableProperty().bind(Bindings.isEmpty(controllers));
 		addDiaminobenzidine();
 		addHaematoxylin();
 	}
@@ -266,10 +270,41 @@ public class Controller extends BaseController implements Initializable {
 		dialog.show();
 		return dialog;
 	}
-	
+
 	public Stage waitForServer() {
 		Stage dialog = showPopup("Starting python server...");
 		return dialog;
+	}
+
+	@FXML
+	void saveStats() {
+		List<String> columnNames = data.keySet().stream().map(this::getModelName).collect(Collectors.toList());
+		List<List<String>> values = controllers.stream().map(c -> {
+			List<String> row = columnNames.stream().map(n -> c.getImageStats().get(n).toString())
+					.collect(Collectors.toList());
+			row.add(0, c.getTitle());
+			return row;
+		}).collect(Collectors.toList());
+		columnNames.add(0, "image");
+		writeFile(columnNames, values);
+	}
+
+	private void writeFile(List<String> columnNames, List<List<String>> values) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(String.join(",", columnNames));
+		sb.append(System.lineSeparator());
+		for (List<String> v : values) {
+			sb.append(String.join(",", v));
+			sb.append(System.lineSeparator());
+		}
+		File csvFile = Utils.getCsvFile(root.getScene().getWindow());
+		if (csvFile != null) {
+			try (BufferedWriter bw = new BufferedWriter(new FileWriter(csvFile))) {
+				bw.write(sb.toString());
+			} catch (IOException e) {
+				handleException(e, "Save failed! Check your write permissions.");
+			}
+		}
 	}
 
 }

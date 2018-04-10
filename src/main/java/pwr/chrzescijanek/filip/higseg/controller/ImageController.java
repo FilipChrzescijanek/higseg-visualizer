@@ -4,10 +4,8 @@ import static org.opencv.imgcodecs.Imgcodecs.imencode;
 import static pwr.chrzescijanek.filip.higseg.util.Utils.startTask;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -91,8 +89,6 @@ public class ImageController extends BaseController implements Initializable {
 	@FXML
 	MenuItem fileMenuExportToPng;
 	@FXML
-	MenuItem fileMenuSaveStats;
-	@FXML
 	GridPane root;
 	@FXML
 	MenuBar menuBar;
@@ -144,6 +140,14 @@ public class ImageController extends BaseController implements Initializable {
 	CheckBox showCells;
 	@FXML
 	TextArea stats;
+	
+	public Map<String, Integer> getImageStats() {
+		return imageStats;
+	}
+	
+	public String getTitle() {
+		return ((Stage) root.getScene().getWindow()).getTitle();
+	}
 
 	@FXML
 	void showCells() {
@@ -459,24 +463,6 @@ public class ImageController extends BaseController implements Initializable {
 		}
 	}
 
-	@FXML
-	void saveStats() {
-		try (BufferedWriter bw = new BufferedWriter(new FileWriter(Utils.getTxtFile(root.getScene().getWindow())))) {
-			double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
-			StringBuilder sb = new StringBuilder();
-			imageStats.forEach((k, v) -> {
-				String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
-				String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v,
-						formatted);
-				sb.append(row);
-				sb.append(System.lineSeparator());
-			});
-			bw.write(sb.toString());
-		} catch (IOException e) {
-			handleException(e, "Save failed! Check your write permissions.");
-		}
-	}
-
 	private void logInfo(final String filePath) {
 		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
 		LOGGER.info("Loaded image: " + filePath);
@@ -645,7 +631,6 @@ public class ImageController extends BaseController implements Initializable {
 		alignMousePositionLabel.visibleProperty().bind(alignImageIsPresent);
 		showCells.visibleProperty().bind(alignImageIsPresent);
 		fileMenuExportToPng.disableProperty().bind(alignImageIsPresent.not());
-		fileMenuSaveStats.disableProperty().bind(alignImageIsPresent.not());
 		editMenuZoomIn.disableProperty().bind(alignImageIsPresent.not());
 		editMenuZoomOut.disableProperty().bind(alignImageIsPresent.not());
 		editMenuCells.disableProperty().bind(alignImageIsPresent.not());

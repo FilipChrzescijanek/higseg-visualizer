@@ -110,10 +110,10 @@ public final class Utils {
 	 *            application window
 	 * @return CSV file
 	 */
-	public static File getTxtFile(final Window window) {
+	public static File getCsvFile(final Window window) {
 		final FileChooser fileChooser = new FileChooser();
-		fileChooser.setTitle("Export statistics to TXT file");
-		fileChooser.getExtensionFilters().add(new ExtensionFilter("Text files", "*.txt"));
+		fileChooser.setTitle("Export statistics to CSV file");
+		fileChooser.getExtensionFilters().add(new ExtensionFilter("Comma separated values files", "*.csv"));
 		return fileChooser.showSaveDialog(window);
 	}
 

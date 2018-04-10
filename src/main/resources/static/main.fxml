@@ -15,6 +15,8 @@
     </columnConstraints>
     <MenuBar fx:id="menuBar" GridPane.rowIndex="0">
         <Menu fx:id="fileMenu" text="_File">
+            <MenuItem fx:id="fileMenuSaveStats" text="_Export statistics" onAction="#saveStats"
+                      accelerator="Shortcut+E"/>
             <MenuItem fx:id="alignMenuLoadImages" text="_Load images" onAction="#loadImages"
                       accelerator="Shortcut+L"/>
             <MenuItem fx:id="alignMenuLoadModels" text="_Load models" onAction="#loadModels"
