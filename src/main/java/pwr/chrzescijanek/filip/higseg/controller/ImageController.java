@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,6 +69,7 @@ import javafx.stage.Stage;
 import pwr.chrzescijanek.filip.fuzzyclassifier.Classifier;
 import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestDataSet;
 import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestRecord;
+import pwr.chrzescijanek.filip.higseg.python.PortHolder;
 import pwr.chrzescijanek.filip.higseg.util.Coordinates;
 import pwr.chrzescijanek.filip.higseg.util.ModelData;
 import pwr.chrzescijanek.filip.higseg.util.ModelDto;
@@ -305,19 +307,14 @@ public class ImageController extends BaseController implements Initializable {
 		Mat labels = new Mat();
 		Mat inverted = new Mat();
 		Core.bitwise_not(result, inverted);
+		clearBorders(inverted);
 		int connectedComponents = Imgproc.connectedComponents(inverted, labels) - 1;
 
 		Map<Integer, int[]> stats = new HashMap<>();
 
 		for (int i = 0; i < connectedComponents; i++) {
-			stats.put(i, new int[4]);
-		}
-
-		for (int i = 0; i < stats.size(); i++) {
-			stats.get(i)[0] = -1;
-			stats.get(i)[1] = -1;
-			stats.get(i)[2] = -1;
-			stats.get(i)[3] = -1;
+			int[] array = new int[] {-1, -1, -1, -1};
+			stats.put(i, array);
 		}
 
 		final int[] currentData = new int[(int) labels.total()];
@@ -345,11 +342,6 @@ public class ImageController extends BaseController implements Initializable {
 			}
 		}
 
-		stats = stats.entrySet().stream()
-				.filter(entry -> entry.getValue()[0] != 0 && entry.getValue()[1] != (labels.cols() - 1)
-						&& entry.getValue()[2] != 0 && entry.getValue()[3] != (labels.rows() - 1))
-				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
 		int margin = 5;
 
 		Map<Integer, Mat> images = new HashMap<>();
@@ -362,7 +354,7 @@ public class ImageController extends BaseController implements Initializable {
 		for (int i = 0; i < labels.rows(); i++) {
 			for (int j = 0; j < labels.cols(); j++) {
 				int label = currentData[(i * width + j)] - 1;
-				if (label >= 0 && images.containsKey(label)) {
+				if (label >= 0) {
 					int startRow = stats.get(label)[2];
 					int startCol = stats.get(label)[0];
 					images.get(label).put(i - startRow + margin, j - startCol + margin, new byte[] { -1 });
@@ -392,37 +384,70 @@ public class ImageController extends BaseController implements Initializable {
 		return inverted;
 	}
 
+	private void clearBorders(Mat inverted) {
+		int totalRows = inverted.rows();
+		int totalCols = inverted.cols();
+		for (int i = 0; i < totalRows; i++) {
+			Imgproc.floodFill(inverted, new Mat(), new Point(0, i), new Scalar(0));
+			Imgproc.floodFill(inverted, new Mat(), new Point(totalCols - 1, i), new Scalar(0));
+		}
+		for (int i = 0; i < totalCols; i++) {
+			Imgproc.floodFill(inverted, new Mat(), new Point(i, 0), new Scalar(0));
+			Imgproc.floodFill(inverted, new Mat(), new Point(i, totalRows - 1), new Scalar(0));
+		}
+	}
+
 	private Integer quantify(List<Mat> newImages) {
 		String tmp = "tmp" + new Date().getTime();
-		saveImages(newImages, tmp);
+		String dirName = tmp + "/unknown";
+		saveImages(newImages, dirName);
 		int quantity = callPython(newImages, tmp);
 		cleanUp(tmp);
 		return quantity;
 	}
 
-	private void saveImages(List<Mat> newImages, String tmp) {
-		File dir = new File(tmp);
+	private void saveImages(List<Mat> newImages, String dirName) {
+		File dir = new File(dirName);
 		dir.mkdirs();
 		for (int i = 0; i < newImages.size(); i++) {
-			Imgcodecs.imwrite(tmp + "/image_" + i + ".png", newImages.get(i));
+			Imgcodecs.imwrite(dirName + "/image_" + i + ".png", newImages.get(i));
 		}
 	}
 
 	private int callPython(List<Mat> newImages, String tmp) {
-		ProcessBuilder pb = new ProcessBuilder("py", "quantify.py", tmp);
 		int quantity = newImages.size();
 		try {
-			Process pr = pb.start();
-			BufferedReader in = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-			String line = in.readLine();
-			pr.waitFor();
-			in.close();
+			String line = sendGet(tmp);
 			quantity = Integer.parseInt(line);
-		} catch (IOException | InterruptedException e) {
-			handleException(e,
-					"Python script execution failed! Check if you have Python 3.6 installed and \"py\" added to your path.");
+		} catch (IOException | IllegalStateException e) {
+			handleException(e, "Connection to python server failed! Check if all of the dependencies were installed properly.");
 		}
 		return quantity;
+	}
+	
+	private String sendGet(String dir) throws IOException {
+		if (PortHolder.INSTANCE.getPort() < 0) {
+			throw new IllegalStateException("Server is not ready!");
+		}
+		String url = "http://localhost:" + PortHolder.INSTANCE.getPort() + "/?dir=" + dir;
+		URL obj = new URL(url);
+		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+
+		int responseCode = con.getResponseCode();
+		if (responseCode != 200) {
+			throw new IllegalStateException("Something went wrong during GET request processing!");
+		}
+		
+		BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+		String inputLine;
+		StringBuffer response = new StringBuffer();
+
+		while ((inputLine = in.readLine()) != null) {
+			response.append(inputLine);
+		}
+		in.close();
+
+		return response.toString();
 	}
 
 	private void cleanUp(String tmp) {

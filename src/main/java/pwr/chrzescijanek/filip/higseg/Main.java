@@ -29,9 +29,10 @@ public class Main {
 		System.setProperty(LOGGING_FORMAT_PROPERTY, LOGGING_FORMAT);
 		initializeLogger();
 	}
-	
-	private Main() {}
-    
+
+	private Main() {
+	}
+
 	private static void initializeLogger() {
 		try {
 			final Handler fileHandler = new FileHandler("log", 10000, 5, true);
@@ -45,13 +46,14 @@ public class Main {
 	/**
 	 * Starts the application.
 	 *
-	 * @param args launch arguments
-	 * @throws IOException 
+	 * @param args
+	 *            launch arguments
+	 * @throws IOException
 	 */
 	public static void main(final String... args) throws IOException {
 		Main main = new Main();
 		JCommander.newBuilder().addObject(main).build().parse(args);
-        main.run(args);
+		main.run(args);
 	}
 
 	private void run(final String... args) throws IOException {

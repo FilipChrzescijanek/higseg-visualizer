@@ -266,5 +266,10 @@ public class Controller extends BaseController implements Initializable {
 		dialog.show();
 		return dialog;
 	}
+	
+	public Stage waitForServer() {
+		Stage dialog = showPopup("Starting python server...");
+		return dialog;
+	}
 
 }
