@@ -16,20 +16,20 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -54,6 +54,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextArea;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -64,6 +65,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.util.Pair;
 import pwr.chrzescijanek.filip.fuzzyclassifier.Classifier;
 import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestDataSet;
 import pwr.chrzescijanek.filip.fuzzyclassifier.data.test.TestRecord;
@@ -71,6 +73,7 @@ import pwr.chrzescijanek.filip.higseg.python.PortHolder;
 import pwr.chrzescijanek.filip.higseg.util.Coordinates;
 import pwr.chrzescijanek.filip.higseg.util.ModelData;
 import pwr.chrzescijanek.filip.higseg.util.ModelDto;
+import pwr.chrzescijanek.filip.higseg.util.RandomString;
 import pwr.chrzescijanek.filip.higseg.util.Utils;
 
 /**
@@ -78,13 +81,12 @@ import pwr.chrzescijanek.filip.higseg.util.Utils;
  */
 public class ImageController extends BaseController implements Initializable {
 
-	private static final Logger LOGGER = Logger.getLogger(ImageController.class.getName());
-
 	private final ObjectProperty<Mat> rawImage = new SimpleObjectProperty<>();
 	private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
 	private final Map<String, Integer> imageStats = new HashMap<>();
+	private final List<Pair<ModelData, List<Pair<MatOfPoint, Double>>>> contours = new ArrayList<>();
 
 	@FXML
 	MenuItem fileMenuExportToPng;
@@ -140,6 +142,8 @@ public class ImageController extends BaseController implements Initializable {
 	CheckBox showCells;
 	@FXML
 	TextArea stats;
+	@FXML
+	Slider filterSizeSlider;
 	
 	public Map<String, Integer> getImageStats() {
 		return imageStats;
@@ -233,43 +237,67 @@ public class ImageController extends BaseController implements Initializable {
 			DialogListener dialogListener) {
 		final byte[] data = new byte[(int) image.total() * 3];
 		image.get(0, 0, data);
+		final Mat newImage = new Mat(image.size(), image.type());
+		image.copyTo(newImage);
 
 		for (ModelData m : models) {
-			final Mat cells = getCells(image, m.getModel(), m.getName());
-			paint(cells, data, m.getColor());
+			final Mat result = getResult(image, m.getModel());
+			List<MatOfPoint> newContours = new ArrayList<>();
+			Imgproc.findContours(result, newContours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+			List<Pair<MatOfPoint, Double>> sizes = newContours
+					.stream()
+					.map(c -> new Pair<>(c, Imgproc.contourArea(c)))
+					.collect(Collectors.toList());
+			contours.add(new Pair<>(m, sizes));
 		}
-
-		final Mat newImage = new Mat(image.size(), image.type());
-		newImage.put(0, 0, data);
-
+		
+		update(newImage);
+		
 		this.rawImage.set(image);
 		this.cells.set(newImage);
+		
 		Platform.runLater(() -> {
 			setImage();
-			logInfo(filePath);
+			logInfo();
 			newStage.show();
 			dialogListener.decrement();
 		});
 	}
-
-	private void paint(final Mat image, final byte[] newData, Color c) {
-		double defaultB = c.getBlue() * 255;
-		double defaultG = c.getGreen() * 255;
-		double defaultR = c.getRed() * 255;
-
-		final byte[] data = new byte[(int) image.total()];
-		image.get(0, 0, data);
-
-		int width = image.width();
-
-		for (int i = 0; i < image.rows(); i++) {
-			for (int j = 0; j < image.cols(); j++) {
-				if (Byte.toUnsignedInt(data[(i * width + j)]) > 0) {
-					newData[(i * width + j) * 3 + 0] = (byte) defaultB;
-					newData[(i * width + j) * 3 + 1] = (byte) defaultG;
-					newData[(i * width + j) * 3 + 2] = (byte) defaultR;
-				}
+	
+	void refresh() {
+		final Task<? extends Void> task = new Task<Void>() {
+			@Override
+			protected Void call() throws Exception {
+				final Mat image = rawImage.get();
+				final Mat newImage = new Mat(image.size(), image.type());
+				image.copyTo(newImage);
+				
+				update(newImage);
+				
+				cells.set(newImage);
+				
+				Platform.runLater(() -> {
+					setImage();
+					logInfo();
+				});
+				return null;
 			}
+		};
+		startTask(task);
+	}
+
+	private void update(final Mat newImage) {
+		for (Pair<ModelData, List<Pair<MatOfPoint, Double>>> pair : contours) {
+			Color color = pair.getKey().getColor();
+			String name = pair.getKey().getName();
+			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
+			List<MatOfPoint> filtered = cs
+					.stream()
+					.filter(p -> p.getValue() > filterSizeSlider.getValue())
+					.map(Pair::getKey)
+					.collect(Collectors.toList());
+			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), Core.FILLED);
+			countCells(filtered, name);
 		}
 	}
 
@@ -279,22 +307,13 @@ public class ImageController extends BaseController implements Initializable {
 		return Utils.getMapping(attributes, uniqueValues);
 	}
 
-	private Mat process(Mat image, Map<TestRecord, Set<Coordinates>> mapping, String morphOperations) {
+	private Mat process(Mat image, Map<TestRecord, Set<Coordinates>> mapping) {
 		Mat result = Utils.createMat(image, mapping);
 		Imgproc.threshold(result, result, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
-		for (char c : morphOperations.toCharArray()) {
-			if (c == 'e') {
-				Imgproc.erode(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)),
-						new Point(3.0 / 2, 3.0 / 2), 1);
-			} else if (c == 'd') {
-				Imgproc.dilate(result, result, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(3, 3)),
-						new Point(3.0 / 2, 3.0 / 2), 1);
-			}
-		}
 		return result;
 	}
 
-	private Mat getCells(final Mat image, final ModelDto model, final String modelName) {
+	private Mat getResult(final Mat image, final ModelDto model) {
 		Classifier c = Utils.getClassifier(model);
 
 		List<String> attributes = Arrays.asList("Hue", "Saturation", "Value");
@@ -306,74 +325,44 @@ public class ImageController extends BaseController implements Initializable {
 		c.test(new TestDataSet(attributes, uniqueTestRecords));
 
 		Mat result = process(image, initialMappings.entrySet().parallelStream()
-				.collect(Collectors.toMap(e -> mapping.get(e.getKey()), e -> e.getValue())), model.getMorphOps());
+				.collect(Collectors.toMap(e -> mapping.get(e.getKey()), e -> e.getValue())));
+		return result;
+	}
 
-		Mat labels = new Mat();
-		Mat inverted = new Mat();
-		Core.bitwise_not(result, inverted);
-		clearBorders(inverted);
-		int connectedComponents = Imgproc.connectedComponents(inverted, labels) - 1;
-
-		Map<Integer, int[]> stats = new HashMap<>();
-
-		for (int i = 0; i < connectedComponents; i++) {
-			int[] array = new int[] {-1, -1, -1, -1};
-			stats.put(i, array);
-		}
-
-		final int[] currentData = new int[(int) labels.total()];
-		labels.get(0, 0, currentData);
-
-		int width = labels.width();
-
-		for (int i = 0; i < labels.rows(); i++) {
-			for (int j = 0; j < labels.cols(); j++) {
-				int label = currentData[(i * width + j)] - 1;
-				if (label >= 0) {
-					if (stats.get(label)[0] < 0 || stats.get(label)[0] > j) {
-						stats.get(label)[0] = j;
-					}
-					if (stats.get(label)[1] < j) {
-						stats.get(label)[1] = j;
-					}
-					if (stats.get(label)[2] < 0 || stats.get(label)[2] > i) {
-						stats.get(label)[2] = i;
-					}
-					if (stats.get(label)[3] < i) {
-						stats.get(label)[3] = i;
-					}
-				}
+	private void countCells(final List<MatOfPoint> contours, final String modelName) {
+		List<Rect> boundaries = contours.stream().map(c -> Imgproc.boundingRect(c)).collect(Collectors.toList());
+		List<MatOfPoint> translated = new ArrayList<>();
+		
+		for (int i = 0; i < contours.size(); i++) {
+			MatOfPoint contour = contours.get(i);
+			Rect boundary = boundaries.get(i);
+			
+			Point[] array = contour.toArray();
+			for (Point p : array) {
+				p.x = p.x - boundary.x;
+				p.y = p.y - boundary.y;
 			}
+			translated.add(new MatOfPoint(array));
 		}
-
-		int margin = 5;
-
-		Map<Integer, Mat> images = new HashMap<>();
-		stats.forEach((k, v) -> {
-			Mat mat = new Mat(v[3] - v[2] + 1 + 2 * margin, v[1] - v[0] + 1 + 2 * margin, CvType.CV_8UC1,
+		
+		List<Mat> images = new ArrayList<>();
+		for (int i = 0; i < translated.size(); i++) {
+			Rect boundary = boundaries.get(i);
+			Mat mat = new Mat(boundary.height + 1, boundary.width + 1, CvType.CV_8UC1,
 					new Scalar(0));
-			images.put(k, mat);
-		});
-
-		for (int i = 0; i < labels.rows(); i++) {
-			for (int j = 0; j < labels.cols(); j++) {
-				int label = currentData[(i * width + j)] - 1;
-				if (label >= 0) {
-					int startRow = stats.get(label)[2];
-					int startCol = stats.get(label)[0];
-					images.get(label).put(i - startRow + margin, j - startCol + margin, new byte[] { -1 });
-				}
-			}
+			Imgproc.drawContours(mat, translated, i, new Scalar(255.0), Core.FILLED);
+			images.add(mat);
 		}
-
-		List<Mat> imgs = new ArrayList<>(images.values());
 
 		int size = 56;
+		int margin = 5;
+		int cropSize = size - 2 * margin;
+		
 		List<Mat> newImages = new ArrayList<>();
-		imgs.forEach(v -> {
+		images.forEach(v -> {
 			double w = v.width();
 			double h = v.height();
-			double scale = w > h ? size / w : size / h;
+			double scale = w > h ? cropSize / w : cropSize / h;
 			Imgproc.resize(v, v, new Size(), scale, scale, Imgproc.INTER_CUBIC);
 			Mat newImage = new Mat(size, size, CvType.CV_8UC1, new Scalar(0));
 			int newW = v.width();
@@ -385,24 +374,10 @@ public class ImageController extends BaseController implements Initializable {
 		});
 
 		imageStats.put(modelName, quantify(newImages));
-		return inverted;
-	}
-
-	private void clearBorders(Mat inverted) {
-		int totalRows = inverted.rows();
-		int totalCols = inverted.cols();
-		for (int i = 0; i < totalRows; i++) {
-			Imgproc.floodFill(inverted, new Mat(), new Point(0, i), new Scalar(0));
-			Imgproc.floodFill(inverted, new Mat(), new Point(totalCols - 1, i), new Scalar(0));
-		}
-		for (int i = 0; i < totalCols; i++) {
-			Imgproc.floodFill(inverted, new Mat(), new Point(i, 0), new Scalar(0));
-			Imgproc.floodFill(inverted, new Mat(), new Point(i, totalRows - 1), new Scalar(0));
-		}
 	}
 
 	private Integer quantify(List<Mat> newImages) {
-		String tmp = "tmp" + new Date().getTime();
+		String tmp = new RandomString().nextString();
 		String dirName = tmp + "/unknown";
 		saveImages(newImages, dirName);
 		int quantity = callPython(newImages, tmp);
@@ -412,9 +387,13 @@ public class ImageController extends BaseController implements Initializable {
 
 	private void saveImages(List<Mat> newImages, String dirName) {
 		File dir = new File(dirName);
+		String filename = new RandomString().nextString();
+		File dir2 = new File(filename);
 		dir.mkdirs();
+		dir2.mkdirs();
 		for (int i = 0; i < newImages.size(); i++) {
 			Imgcodecs.imwrite(dirName + "/image_" + i + ".png", newImages.get(i));
+			Imgcodecs.imwrite(filename + "/image_" + i + ".png", newImages.get(i)); //@TODO
 		}
 	}
 
@@ -463,14 +442,12 @@ public class ImageController extends BaseController implements Initializable {
 		}
 	}
 
-	private void logInfo(final String filePath) {
+	private void logInfo() {
 		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
-		LOGGER.info("Loaded image: " + filePath);
 		StringBuilder sb = new StringBuilder();
 		imageStats.forEach((k, v) -> {
 			String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
 			String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v, formatted);
-			LOGGER.info(row);
 			sb.append(row);
 			sb.append(System.lineSeparator());
 		});
@@ -529,6 +506,7 @@ public class ImageController extends BaseController implements Initializable {
 		root.setOnMouseReleased(event -> {
 			alignImageViewGroup.getScene().setCursor(Cursor.DEFAULT);
 		});
+		filterSizeSlider.setOnMouseReleased(event -> refresh());
 	}
 
 	private void initializeComboBoxes() {

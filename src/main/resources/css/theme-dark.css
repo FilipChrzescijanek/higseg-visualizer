@@ -171,3 +171,8 @@
 .check-box:selected .mark {
     -fx-background-color: #eee;
 }
+
+.slider .axis {
+    -fx-text-fill: #eee;
+    -fx-tick-label-fill: #eee;
+}

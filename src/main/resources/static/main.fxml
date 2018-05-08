@@ -16,13 +16,15 @@
     <MenuBar fx:id="menuBar" GridPane.rowIndex="0">
         <Menu fx:id="fileMenu" text="_File">
             <MenuItem fx:id="fileMenuSaveStats" text="_Export statistics" onAction="#saveStats"
-                      accelerator="Shortcut+E"/>
+                      accelerator="Shortcut+S"/>
             <MenuItem fx:id="alignMenuLoadImages" text="_Load images" onAction="#loadImages"
                       accelerator="Shortcut+L"/>
             <MenuItem fx:id="alignMenuLoadModels" text="_Load models" onAction="#loadModels"
                       accelerator="Shortcut+M"/>
             <MenuItem fx:id="alignMenuClearModels" text="_Clear models" onAction="#clearModels"
                       accelerator="Shortcut+R"/>
+            <MenuItem fx:id="alignMenuRestoreModels" text="_Restore models" onAction="#restoreModels"
+                      accelerator="Shortcut+Z"/>
             <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
         </Menu>
         <Menu fx:id="optionsMenu" text="_Options">

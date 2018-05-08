@@ -9,7 +9,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
@@ -22,7 +21,6 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.ObservableMap;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -41,6 +39,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.util.Pair;
 import pwr.chrzescijanek.filip.higseg.util.ModelData;
 import pwr.chrzescijanek.filip.higseg.util.ModelDto;
 import pwr.chrzescijanek.filip.higseg.util.StageUtils;
@@ -52,7 +51,7 @@ import pwr.chrzescijanek.filip.higseg.util.Utils;
 public class Controller extends BaseController implements Initializable {
 
 	private final ObservableList<ImageController> controllers = FXCollections.observableArrayList();
-	private final ObservableMap<File, ColorPicker> data = FXCollections.observableHashMap();
+	private final ObservableList<Pair<File, ColorPicker>> data = FXCollections.observableArrayList();
 
 	@FXML
 	GridPane root;
@@ -62,6 +61,8 @@ public class Controller extends BaseController implements Initializable {
 	MenuItem alignMenuLoadModels;
 	@FXML
 	MenuItem alignMenuClearModels;
+	@FXML
+	MenuItem alignMenuRestoreModels;
 	@FXML
 	Button loadModelsButton;
 	@FXML
@@ -109,6 +110,13 @@ public class Controller extends BaseController implements Initializable {
 	}
 
 	@FXML
+	void restoreModels() {
+		clearModels();
+		addHaematoxylin();
+		addDiaminobenzidine();
+	}
+	
+	@FXML
 	void clearModels() {
 		data.clear();
 		models.getChildren().clear();
@@ -141,7 +149,8 @@ public class Controller extends BaseController implements Initializable {
 		final String fileName = filePath.substring(filePath.lastIndexOf(File.separator) + 1);
 		final Stage newStage = new Stage();
 		final String viewPath = "/static/image.fxml";
-		String name = getTitle(fileName);
+		final List<ModelData> modelsData = getModelsData();
+		final String name = getTitle(fileName);
 		final ImageController controller = StageUtils.loadImageStage(newStage, viewPath, name);
 		controllers.add(controller);
 		newStage.setOnHidden(e -> {
@@ -150,15 +159,15 @@ public class Controller extends BaseController implements Initializable {
 		startTask(new Task<Void>() {
 			@Override
 			protected Void call() throws Exception {
-				controller.addImage(image, filePath, getModelsData(), newStage, dialogListener);
+				controller.addImage(image, filePath, modelsData, newStage, dialogListener);
 				return null;
 			}
 		});
 	}
 
 	private List<ModelData> getModelsData() {
-		return data.entrySet().stream()
-				.map(e -> new ModelData(loadModel(e), e.getValue().getValue(), getModelName(e.getKey())))
+		return data.stream()
+				.map(p -> new ModelData(loadModel(p), p.getValue().getValue(), getModelName(p.getKey())))
 				.collect(Collectors.toList());
 	}
 
@@ -167,7 +176,7 @@ public class Controller extends BaseController implements Initializable {
 		return name.substring(0, name.indexOf(".hgmodel"));
 	}
 
-	private ModelDto loadModel(Entry<File, ColorPicker> entry) {
+	private ModelDto loadModel(Pair<File, ColorPicker> entry) {
 		try {
 			return Utils.loadModel(entry.getKey());
 		} catch (IOException ex) {
@@ -202,8 +211,8 @@ public class Controller extends BaseController implements Initializable {
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
 		initializeStyle();
 		fileMenuSaveStats.disableProperty().bind(Bindings.isEmpty(controllers));
-		addDiaminobenzidine();
 		addHaematoxylin();
+		addDiaminobenzidine();
 	}
 
 	private void addDiaminobenzidine() {
@@ -215,10 +224,14 @@ public class Controller extends BaseController implements Initializable {
 	}
 
 	private void addRow(String resource, Color color) {
+		File file = new File(getClass().getResource(resource).getFile());
+		addRow(file, color);
+	}
+
+	private void addRow(File file, Color color) {
 		ColorPicker cp = new ColorPicker();
 		cp.setValue(color);
-		File file = new File(getClass().getResource(resource).getFile());
-		data.put(file, cp);
+		data.add(new Pair<>(file, cp));
 		Label label = new Label(getModelName(file));
 		label.setMinWidth(200.0);
 		label.setMaxWidth(200.0);
@@ -242,6 +255,7 @@ public class Controller extends BaseController implements Initializable {
 
 		loadModelsButton.disableProperty().bind(images);
 		alignMenuLoadModels.disableProperty().bind(images);
+		alignMenuRestoreModels.disableProperty().bind(images);
 		alignMenuClearModels.disableProperty().bind(Bindings.or(noModels, images));
 	}
 
@@ -255,9 +269,7 @@ public class Controller extends BaseController implements Initializable {
 
 	private void addModels(final List<File> selectedFiles) {
 		for (File f : selectedFiles) {
-			ColorPicker cp = new ColorPicker();
-			data.put(f, cp);
-			models.getChildren().add(new HBox(new Label(getModelName(f)), cp));
+			addRow(f, Color.BLACK);
 		}
 	}
 
@@ -278,7 +290,7 @@ public class Controller extends BaseController implements Initializable {
 
 	@FXML
 	void saveStats() {
-		List<String> columnNames = data.keySet().stream().map(this::getModelName).collect(Collectors.toList());
+		List<String> columnNames = data.stream().map(p -> getModelName(p.getKey())).collect(Collectors.toList());
 		List<List<String>> values = controllers.stream().map(c -> {
 			List<String> row = columnNames.stream().map(n -> c.getImageStats().get(n).toString())
 					.collect(Collectors.toList());
