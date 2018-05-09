@@ -74,9 +74,9 @@
                     <RowConstraints minHeight="40.0"/>
                     <RowConstraints minHeight="40.0"/>
                 </rowConstraints>
-                <Label text="Filter cells smaller than: " GridPane.columnIndex="0" GridPane.columnSpan="2"/>
-                <Slider fx:id="filterSizeSlider" value="100" min="0" max="1000" showTickLabels="true" showTickMarks="true" 
-                	minorTickCount="1" majorTickUnit="100" GridPane.columnIndex="2" GridPane.columnSpan="2"/>
+                <Label text="Filter cells smaller than [fraction of max. size]: " GridPane.columnIndex="0" GridPane.columnSpan="2"/>
+                <Slider fx:id="filterSizeSlider" value="0.1" min="0.0" max="1.0" showTickLabels="true" showTickMarks="true" 
+                	minorTickCount="1" majorTickUnit="0.5" GridPane.columnIndex="2" GridPane.columnSpan="2"/>
                 <Label fx:id="alignImageSizeLabel" GridPane.rowIndex="1"/>
                 <CheckBox fx:id="showCells" text="Show cells" onAction="#showCells" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
                 <ComboBox fx:id="alignScaleCombo" editable="true" prefWidth="80.0" visibleRowCount="5"

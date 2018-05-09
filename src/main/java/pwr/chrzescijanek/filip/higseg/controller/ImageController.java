@@ -80,11 +80,14 @@ import pwr.chrzescijanek.filip.higseg.util.Utils;
  * Application controller class.
  */
 public class ImageController extends BaseController implements Initializable {
-
+	
 	private final ObjectProperty<Mat> rawImage = new SimpleObjectProperty<>();
 	private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
+	
+	private double maxArea = 1.0;
+	
 	private final Map<String, Integer> imageStats = new HashMap<>();
 	private final List<Pair<ModelData, List<Pair<MatOfPoint, Double>>>> contours = new ArrayList<>();
 
@@ -250,6 +253,10 @@ public class ImageController extends BaseController implements Initializable {
 					.collect(Collectors.toList());
 			contours.add(new Pair<>(m, sizes));
 		}
+		maxArea = contours.stream()
+				.flatMap(p -> p.getValue().stream())
+				.mapToDouble(Pair::getValue)
+				.max().orElse(1.0);
 		
 		update(newImage);
 		
@@ -293,7 +300,7 @@ public class ImageController extends BaseController implements Initializable {
 			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
 			List<MatOfPoint> filtered = cs
 					.stream()
-					.filter(p -> p.getValue() > filterSizeSlider.getValue())
+					.filter(p -> p.getValue() > filterSizeSlider.getValue() * maxArea)
 					.map(Pair::getKey)
 					.collect(Collectors.toList());
 			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), Core.FILLED);
@@ -377,12 +384,15 @@ public class ImageController extends BaseController implements Initializable {
 	}
 
 	private Integer quantify(List<Mat> newImages) {
-		String tmp = new RandomString().nextString();
-		String dirName = tmp + "/unknown";
-		saveImages(newImages, dirName);
-		int quantity = callPython(newImages, tmp);
-		cleanUp(tmp);
-		return quantity;
+		if (newImages.size() > 0) {
+			String tmp = new RandomString().nextString();
+			String dirName = tmp + "/unknown";
+			saveImages(newImages, dirName);
+			int quantity = callPython(newImages, tmp);
+			cleanUp(tmp);
+			return quantity;
+		}
+		return newImages.size();
 	}
 
 	private void saveImages(List<Mat> newImages, String dirName) {
@@ -446,7 +456,8 @@ public class ImageController extends BaseController implements Initializable {
 		double sum = imageStats.values().stream().mapToDouble(Integer::doubleValue).sum();
 		StringBuilder sb = new StringBuilder();
 		imageStats.forEach((k, v) -> {
-			String formatted = String.format("%.2f", (v / sum) * 100).replaceFirst("\\.?0*$", "");
+			double fraction = v / sum;
+			String formatted = String.format("%.2f", (Double.isNaN(fraction) ? 1.0 : fraction) * 100).replaceFirst("\\.?0*$", "");
 			String row = String.format("%s: %d (%s%%)", k.substring(k.lastIndexOf(File.separator) + 1), v, formatted);
 			sb.append(row);
 			sb.append(System.lineSeparator());
