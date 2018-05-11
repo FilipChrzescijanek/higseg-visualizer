@@ -85,7 +85,8 @@ public class ImageController extends BaseController implements Initializable {
 	private final ObjectProperty<Mat> cells = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxRawImage = new SimpleObjectProperty<>();
 	private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
-	
+
+	private static final double EPSILON = Math.pow(10.0, -6);
 	private double maxArea = 1.0;
 	
 	private final Map<String, Integer> imageStats = new HashMap<>();
@@ -146,7 +147,9 @@ public class ImageController extends BaseController implements Initializable {
 	@FXML
 	TextArea stats;
 	@FXML
-	Slider filterSizeSlider;
+	Slider lowerBoundarySlider;
+	@FXML
+	Slider higherBoundarySlider;
 	
 	public Map<String, Integer> getImageStats() {
 		return imageStats;
@@ -300,7 +303,8 @@ public class ImageController extends BaseController implements Initializable {
 			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
 			List<MatOfPoint> filtered = cs
 					.stream()
-					.filter(p -> p.getValue() > filterSizeSlider.getValue() * maxArea)
+					.filter(p -> p.getValue() > lowerBoundarySlider.getValue() * maxArea
+							&& p.getValue() < higherBoundarySlider.getValue() * maxArea + EPSILON)
 					.map(Pair::getKey)
 					.collect(Collectors.toList());
 			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), Core.FILLED);
@@ -517,7 +521,8 @@ public class ImageController extends BaseController implements Initializable {
 		root.setOnMouseReleased(event -> {
 			alignImageViewGroup.getScene().setCursor(Cursor.DEFAULT);
 		});
-		filterSizeSlider.setOnMouseReleased(event -> refresh());
+		lowerBoundarySlider.setOnMouseReleased(event -> refresh());
+		higherBoundarySlider.setOnMouseReleased(event -> refresh());
 	}
 
 	private void initializeComboBoxes() {
