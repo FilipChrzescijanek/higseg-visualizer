@@ -510,6 +510,7 @@ public class ImageController extends BaseController implements Initializable {
 		initializeStyle();
 		initializeComboBoxes();
 		showCells.selectedProperty().bindBidirectional(editMenuCells.selectedProperty());
+		showCells.setSelected(true);
 	}
 
 	private void bindScrollPaneSize() {
