@@ -401,13 +401,9 @@ public class ImageController extends BaseController implements Initializable {
 
 	private void saveImages(List<Mat> newImages, String dirName) {
 		File dir = new File(dirName);
-		String filename = new RandomString().nextString();
-		File dir2 = new File(filename);
 		dir.mkdirs();
-		dir2.mkdirs();
 		for (int i = 0; i < newImages.size(); i++) {
 			Imgcodecs.imwrite(dirName + "/image_" + i + ".png", newImages.get(i));
-			Imgcodecs.imwrite(filename + "/image_" + i + ".png", newImages.get(i)); //@TODO
 		}
 	}
 
