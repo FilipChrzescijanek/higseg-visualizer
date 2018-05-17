@@ -150,6 +150,11 @@ public class ImageController extends BaseController implements Initializable {
 	Slider lowerBoundarySlider;
 	@FXML
 	Slider higherBoundarySlider;
+
+	@Override
+	protected GridPane getRoot() {
+		return root;
+	}
 	
 	public Map<String, Integer> getImageStats() {
 		return imageStats;
@@ -251,12 +256,12 @@ public class ImageController extends BaseController implements Initializable {
 			List<MatOfPoint> newContours = new ArrayList<>();
 			Imgproc.findContours(result, newContours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 			List<Pair<MatOfPoint, Double>> sizes = newContours
-					.stream()
+					.parallelStream()
 					.map(c -> new Pair<>(c, Imgproc.contourArea(c)))
 					.collect(Collectors.toList());
 			contours.add(new Pair<>(m, sizes));
 		}
-		maxArea = contours.stream()
+		maxArea = contours.parallelStream()
 				.flatMap(p -> p.getValue().stream())
 				.mapToDouble(Pair::getValue)
 				.max().orElse(1.0);
@@ -275,6 +280,7 @@ public class ImageController extends BaseController implements Initializable {
 	}
 	
 	void refresh() {
+		final Stage dialog = showPopup("Calculating statistics...");
 		final Task<? extends Void> task = new Task<Void>() {
 			@Override
 			protected Void call() throws Exception {
@@ -289,6 +295,7 @@ public class ImageController extends BaseController implements Initializable {
 				Platform.runLater(() -> {
 					setImage();
 					logInfo();
+					dialog.close();
 				});
 				return null;
 			}
@@ -302,7 +309,7 @@ public class ImageController extends BaseController implements Initializable {
 			String name = pair.getKey().getName();
 			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
 			List<MatOfPoint> filtered = cs
-					.stream()
+					.parallelStream()
 					.filter(p -> p.getValue() > lowerBoundarySlider.getValue() * maxArea
 							&& p.getValue() < higherBoundarySlider.getValue() * maxArea + EPSILON)
 					.map(Pair::getKey)
@@ -341,7 +348,7 @@ public class ImageController extends BaseController implements Initializable {
 	}
 
 	private void countCells(final List<MatOfPoint> contours, final String modelName) {
-		List<Rect> boundaries = contours.stream().map(c -> Imgproc.boundingRect(c)).collect(Collectors.toList());
+		List<Rect> boundaries = contours.parallelStream().map(c -> Imgproc.boundingRect(c)).collect(Collectors.toList());
 		List<MatOfPoint> translated = new ArrayList<>();
 		
 		for (int i = 0; i < contours.size(); i++) {

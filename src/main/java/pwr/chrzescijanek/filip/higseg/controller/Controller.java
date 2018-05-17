@@ -24,7 +24,6 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
@@ -75,6 +74,11 @@ public class Controller extends BaseController implements Initializable {
 	RadioMenuItem optionsMenuThemeLight;
 	@FXML
 	VBox models;
+
+	@Override
+	protected GridPane getRoot() {
+		return root;
+	}
 
 	@FXML
 	void about() {
@@ -271,16 +275,6 @@ public class Controller extends BaseController implements Initializable {
 		for (File f : selectedFiles) {
 			addRow(f, Color.BLACK);
 		}
-	}
-
-	private Stage showPopup(final String info) {
-		final Stage dialog = StageUtils.initDialog(root.getScene().getWindow());
-		final HBox box = Utils.getHBoxWithLabelAndProgressIndicator(info);
-		final Scene scene = new Scene(box);
-		injectStylesheets(box);
-		dialog.setScene(scene);
-		dialog.show();
-		return dialog;
 	}
 
 	public Stage waitForServer() {

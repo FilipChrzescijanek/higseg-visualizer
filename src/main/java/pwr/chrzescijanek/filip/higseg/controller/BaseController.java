@@ -12,17 +12,21 @@ import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.DialogPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import pwr.chrzescijanek.filip.higseg.Main;
 import pwr.chrzescijanek.filip.higseg.util.StageUtils;
+import pwr.chrzescijanek.filip.higseg.util.Utils;
 
 /**
  * Base class for controllers.
  */
-public class BaseController {
+public abstract class BaseController {
 
 	private static final Logger LOGGER = Logger.getLogger(BaseController.class.getName());
 
@@ -48,6 +52,8 @@ public class BaseController {
 			theme.set(THEME_DARK);
 	}
 
+	protected abstract GridPane getRoot();
+	
 	/**
 	 * Injects current theme stylesheets to given parent and adds on theme changed listener.
 	 *
@@ -126,6 +132,16 @@ public class BaseController {
 		StageUtils.prepareHelpStage(stage, helpView);
 		injectStylesheets(helpView);
 		stage.show();
+	}
+
+	protected Stage showPopup(final String info) {
+		final Stage dialog = StageUtils.initDialog(getRoot().getScene().getWindow());
+		final HBox box = Utils.getHBoxWithLabelAndProgressIndicator(info);
+		final Scene scene = new Scene(box);
+		injectStylesheets(box);
+		dialog.setScene(scene);
+		dialog.show();
+		return dialog;
 	}
 
 }
