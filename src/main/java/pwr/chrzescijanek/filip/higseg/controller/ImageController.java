@@ -15,13 +15,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -89,8 +92,12 @@ public class ImageController extends BaseController implements Initializable {
 	private static final double EPSILON = Math.pow(10.0, -6);
 	private double maxArea = 1.0;
 	
+	private long startTime = System.currentTimeMillis();
+	private long delta = 0;
+	
 	private final Map<String, Integer> imageStats = new HashMap<>();
 	private final List<Pair<ModelData, List<Pair<MatOfPoint, Double>>>> contours = new ArrayList<>();
+	private final List<Pair<ModelData, List<Pair<MatOfPoint, Integer>>>> predictions = new ArrayList<>();
 
 	@FXML
 	MenuItem fileMenuExportToPng;
@@ -258,8 +265,16 @@ public class ImageController extends BaseController implements Initializable {
 			List<Pair<MatOfPoint, Double>> sizes = newContours
 					.parallelStream()
 					.map(c -> new Pair<>(c, Imgproc.contourArea(c)))
+					.filter(p -> p.getValue() > 100.0)
 					.collect(Collectors.toList());
 			contours.add(new Pair<>(m, sizes));
+			
+			List<Pair<MatOfPoint, Integer>> classes = getPredictions(
+					sizes.parallelStream()
+					.map(Pair::getKey)
+					.collect(Collectors.toList())
+				);
+			predictions.add(new Pair<>(m, classes));
 		}
 		maxArea = contours.parallelStream()
 				.flatMap(p -> p.getValue().stream())
@@ -310,8 +325,8 @@ public class ImageController extends BaseController implements Initializable {
 			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
 			List<MatOfPoint> filtered = cs
 					.parallelStream()
-					.filter(p -> p.getValue() > lowerBoundarySlider.getValue() * maxArea
-							&& p.getValue() < higherBoundarySlider.getValue() * maxArea + EPSILON)
+					.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea
+							&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea + EPSILON)
 					.map(Pair::getKey)
 					.collect(Collectors.toList());
 			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), Core.FILLED);
@@ -346,8 +361,18 @@ public class ImageController extends BaseController implements Initializable {
 				.collect(Collectors.toMap(e -> mapping.get(e.getKey()), e -> e.getValue())));
 		return result;
 	}
-
+	
 	private void countCells(final List<MatOfPoint> contours, final String modelName) {
+		int quantity = predictions.parallelStream()
+			.filter(p -> p.getKey().getName().equals(modelName))
+			.flatMap(p -> p.getValue().stream())
+			.filter(p -> contours.contains(p.getKey()))
+			.mapToInt(Pair::getValue)
+			.sum();
+		imageStats.put(modelName, quantity);
+	}
+
+	private List<Pair<MatOfPoint, Integer>> getPredictions(final List<MatOfPoint> contours) {
 		List<Rect> boundaries = contours.parallelStream().map(c -> Imgproc.boundingRect(c)).collect(Collectors.toList());
 		List<MatOfPoint> translated = new ArrayList<>();
 		
@@ -391,19 +416,22 @@ public class ImageController extends BaseController implements Initializable {
 			newImages.add(newImage);
 		});
 
-		imageStats.put(modelName, quantify(newImages));
+		Map<Integer, Integer> classes = quantify(newImages);
+		return classes.entrySet().parallelStream()
+			.map(e -> new Pair<>(contours.get(e.getKey()), e.getValue()))
+			.collect(Collectors.toList());
 	}
 
-	private Integer quantify(List<Mat> newImages) {
+	private Map<Integer, Integer> quantify(List<Mat> newImages) {
 		if (newImages.size() > 0) {
 			String tmp = new RandomString().nextString();
 			String dirName = tmp + "/unknown";
 			saveImages(newImages, dirName);
-			int quantity = callPython(newImages, tmp);
+			Map<Integer, Integer> classes = callPython(newImages, tmp);
 			cleanUp(tmp);
-			return quantity;
+			return classes;
 		}
-		return newImages.size();
+		return Collections.emptyMap();
 	}
 
 	private void saveImages(List<Mat> newImages, String dirName) {
@@ -414,15 +442,24 @@ public class ImageController extends BaseController implements Initializable {
 		}
 	}
 
-	private int callPython(List<Mat> newImages, String tmp) {
-		int quantity = newImages.size();
+	private Map<Integer, Integer> callPython(List<Mat> newImages, String tmp) {
 		try {
-			String line = sendGet(tmp);
-			quantity = Integer.parseInt(line);
+			String[] lines = sendGet(tmp).split("\\s*\\:\\s*");
+			List<Integer> classes = Arrays.asList(lines[0].trim().substring(1, lines[0].length() - 1).split("\\s*,\\s*"))
+					.parallelStream()
+					.map(Integer::parseInt)
+					.collect(Collectors.toList());
+			List<Integer> filenames = Arrays.asList(lines[1].trim().substring(1, lines[1].length() - 1).split("\\s*,\\s*"))
+					.parallelStream()
+					.map(s -> Integer.parseInt(s.substring(s.indexOf("image_"), s.indexOf(".png")).replaceAll("image_", "")))
+					.collect(Collectors.toList());
+			return IntStream.range(0, newImages.size()).mapToObj(Integer::valueOf)
+					.collect(Collectors.toMap(i -> filenames.get(i), i -> classes.get(i) + 1));
 		} catch (IOException | IllegalStateException e) {
 			handleException(e, "Connection to python server failed! Check if all of the dependencies were installed properly.");
 		}
-		return quantity;
+		return IntStream.range(0, newImages.size()).mapToObj(Integer::valueOf)
+				.collect(Collectors.toMap(Function.identity(), i -> 1));
 	}
 	
 	private String sendGet(String dir) throws IOException {
@@ -469,6 +506,11 @@ public class ImageController extends BaseController implements Initializable {
 			sb.append(row);
 			sb.append(System.lineSeparator());
 		});
+		delta = delta > 0 ? delta : (System.currentTimeMillis() - startTime) / 1000;
+		sb.append("-----------------");
+		sb.append(System.lineSeparator());
+		sb.append(String.format("Execution time [s]: %d", delta));
+		sb.append(System.lineSeparator());
 		stats.setText(sb.toString());
 	}
 

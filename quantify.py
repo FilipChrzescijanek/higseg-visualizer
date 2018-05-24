@@ -14,7 +14,7 @@ def hello():
     datagen = ImageDataGenerator(rescale=1./255)
     generator = datagen.flow_from_directory(dir, target_size=(56, 56), color_mode='grayscale', batch_size=1, class_mode=None, shuffle=False)
     predictions = model.predict_generator(generator)
-    return str(sum(np.argmax(predictions, axis=1)) + len(predictions))
+    return str(np.argmax(predictions, axis=1).tolist()) + ":" + str(generator.filenames)
 
 if __name__ == '__main__':
     if not os.path.isfile('higseg.h5'):
