@@ -36,6 +36,8 @@
         <Menu fx:id="fileMenu" text="_File">
             <MenuItem fx:id="fileMenuExportToPng" text="_Save image" onAction="#exportToPng"
                       accelerator="Shortcut+S"/>
+            <MenuItem fx:id="fileMenuExportToPng" text="_Export cells" onAction="#exportCells"
+                      accelerator="Shortcut+E"/>
             <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
         </Menu>
         <Menu fx:id="editMenu" text="_Edit">

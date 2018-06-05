@@ -329,7 +329,7 @@ public class ImageController extends BaseController implements Initializable {
 							&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea + EPSILON)
 					.map(Pair::getKey)
 					.collect(Collectors.toList());
-			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), Core.FILLED);
+			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), 8);
 			countCells(filtered, name);
 		}
 	}
@@ -373,6 +373,15 @@ public class ImageController extends BaseController implements Initializable {
 	}
 
 	private List<Pair<MatOfPoint, Integer>> getPredictions(final List<MatOfPoint> contours) {
+		List<Mat> newImages = getImages(contours);
+
+		Map<Integer, Integer> classes = quantify(newImages);
+		return classes.entrySet().parallelStream()
+			.map(e -> new Pair<>(contours.get(e.getKey()), e.getValue()))
+			.collect(Collectors.toList());
+	}
+
+	private List<Mat> getImages(final List<MatOfPoint> contours) {
 		List<Rect> boundaries = contours.parallelStream().map(c -> Imgproc.boundingRect(c)).collect(Collectors.toList());
 		List<MatOfPoint> translated = new ArrayList<>();
 		
@@ -415,11 +424,7 @@ public class ImageController extends BaseController implements Initializable {
 
 			newImages.add(newImage);
 		});
-
-		Map<Integer, Integer> classes = quantify(newImages);
-		return classes.entrySet().parallelStream()
-			.map(e -> new Pair<>(contours.get(e.getKey()), e.getValue()))
-			.collect(Collectors.toList());
+		return newImages;
 	}
 
 	private Map<Integer, Integer> quantify(List<Mat> newImages) {
@@ -525,6 +530,67 @@ public class ImageController extends BaseController implements Initializable {
 			}
 		};
 		startTask(task);
+	}
+	
+	@FXML
+	void exportCells() {
+		final File selectedDirectory = Utils.getDirectory(root.getScene().getWindow());
+		final Task<? extends Void> task = new Task<Void>() {
+			@Override
+			protected Void call() throws Exception {
+				writeCells(selectedDirectory);
+				return null;
+			}
+		};
+		startTask(task);
+	}
+
+	void writeCells(File selectedDirectory) {
+		if (selectedDirectory != null) {
+			final Task<Void> task = createWriteCellsTask(selectedDirectory);
+			startTask(task);
+		}
+	}
+
+	private Task<Void> createWriteCellsTask(final File selectedDirectory) {
+		return new Task<Void>() {
+			@Override
+			protected Void call() throws Exception {
+				try {
+					List<MatOfPoint> filtered = contours
+							.parallelStream()
+							.map(p -> p.getValue())
+							.flatMap(cs -> cs
+								.parallelStream()
+								.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea
+										&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea + EPSILON)
+								.map(Pair::getKey))
+							.collect(Collectors.toList());
+					
+					Map<Integer, List<MatOfPoint>> values = predictions
+							.parallelStream()
+							.flatMap(p -> p.getValue().stream())
+							.filter(p -> filtered.contains(p.getKey()))
+							.collect(Collectors.toList())
+							.parallelStream()
+							.collect(Collectors.groupingBy(p -> p.getValue()))
+							.entrySet()
+							.parallelStream()
+							.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()
+									.parallelStream().map(p -> p.getKey()).collect(Collectors.toList())));
+	
+					String dir = selectedDirectory.getCanonicalPath();
+					values.forEach((k, v) -> saveCells(v, dir + "/" + (k - 1)));
+				} catch (final IOException e) {
+					handleException(e, "Save failed! Check your write permissions.");
+				}
+				return null;
+			}
+		};
+	}
+
+	private void saveCells(List<MatOfPoint> filtered, String dir) {
+		saveImages(getImages(filtered), dir);
 	}
 
 	@Override
