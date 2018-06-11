@@ -67,11 +67,19 @@ public class Controller extends BaseController implements Initializable {
 	@FXML
 	Menu optionsMenuTheme;
 	@FXML
-	RadioMenuItem optionsMenuThemeDark;
-	@FXML
 	ToggleGroup themeToggleGroup;
 	@FXML
+	RadioMenuItem optionsMenuThemeDark;
+	@FXML
 	RadioMenuItem optionsMenuThemeLight;
+	@FXML
+	Menu optionsMenuCells;
+	@FXML
+	ToggleGroup cellsToggleGroup;
+	@FXML
+	RadioMenuItem optionsMenuCellsFill;
+	@FXML
+	RadioMenuItem optionsMenuCellsBorder;
 	@FXML
 	VBox models;
 
@@ -156,6 +164,7 @@ public class Controller extends BaseController implements Initializable {
 		final List<ModelData> modelsData = getModelsData();
 		final String name = getTitle(fileName);
 		final ImageController controller = StageUtils.loadImageStage(newStage, viewPath, name);
+		controller.setFill(optionsMenuCellsFill.isSelected());
 		controllers.add(controller);
 		newStage.setOnHidden(e -> {
 			controllers.remove(controller);
@@ -215,6 +224,7 @@ public class Controller extends BaseController implements Initializable {
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
 		initializeStyle();
 		fileMenuSaveStats.disableProperty().bind(Bindings.isEmpty(controllers));
+		optionsMenuCells.disableProperty().bind(Bindings.isNotEmpty(controllers));
 		addHaematoxylin();
 		addDiaminobenzidine();
 	}

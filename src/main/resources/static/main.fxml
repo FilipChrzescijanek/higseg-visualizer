@@ -28,6 +28,14 @@
             <MenuItem fx:id="fileMenuExit" text="E_xit" onAction="#exit"/>
         </Menu>
         <Menu fx:id="optionsMenu" text="_Options">
+        	<Menu fx:id="optionsMenuCells" text="_Cell rendering">
+                <RadioMenuItem fx:id="optionsMenuCellsBorder" text="_Border" selected="true">
+                    <toggleGroup>
+                        <ToggleGroup fx:id="cellsToggleGroup"/>
+                    </toggleGroup>
+                </RadioMenuItem>
+                <RadioMenuItem fx:id="optionsMenuCellsFill" text="_Fill" toggleGroup="$cellsToggleGroup" />
+            </Menu>
             <Menu fx:id="optionsMenuTheme" text="_Theme">
                 <RadioMenuItem fx:id="optionsMenuThemeDark" text="_Dark" onAction="#applyDarkTheme"
                                accelerator="Shortcut+Alt+Shift+D">

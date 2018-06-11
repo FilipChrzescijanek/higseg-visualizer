@@ -42,7 +42,10 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.binding.ObjectBinding;
+import javafx.beans.binding.StringBinding;
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -90,7 +93,7 @@ public class ImageController extends BaseController implements Initializable {
 	private final ObjectProperty<Image> fxCells = new SimpleObjectProperty<>();
 
 	private static final double EPSILON = Math.pow(10.0, -6);
-	private double maxArea = 1.0;
+	private DoubleProperty maxArea = new SimpleDoubleProperty(1.0);
 	
 	private long startTime = System.currentTimeMillis();
 	private long delta = 0;
@@ -157,6 +160,12 @@ public class ImageController extends BaseController implements Initializable {
 	Slider lowerBoundarySlider;
 	@FXML
 	Slider higherBoundarySlider;
+	@FXML
+	Label lowerBoundaryLabel;
+	@FXML
+	Label higherBoundaryLabel;
+	
+	private boolean fill = false;
 
 	@Override
 	protected GridPane getRoot() {
@@ -276,10 +285,10 @@ public class ImageController extends BaseController implements Initializable {
 				);
 			predictions.add(new Pair<>(m, classes));
 		}
-		maxArea = contours.parallelStream()
+		maxArea.set(contours.parallelStream()
 				.flatMap(p -> p.getValue().stream())
 				.mapToDouble(Pair::getValue)
-				.max().orElse(1.0);
+				.max().orElse(1.0));
 		
 		update(newImage);
 		
@@ -325,11 +334,11 @@ public class ImageController extends BaseController implements Initializable {
 			List<Pair<MatOfPoint, Double>> cs = pair.getValue();
 			List<MatOfPoint> filtered = cs
 					.parallelStream()
-					.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea
-							&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea + EPSILON)
+					.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea.get()
+							&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea.get() + EPSILON)
 					.map(Pair::getKey)
 					.collect(Collectors.toList());
-			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), 8);
+			Imgproc.drawContours(newImage, filtered, -1, new Scalar(color.getBlue() * 255, color.getGreen() * 255, color.getRed() * 255), fill ? Core.FILLED : 5);
 			countCells(filtered, name);
 		}
 	}
@@ -562,8 +571,8 @@ public class ImageController extends BaseController implements Initializable {
 							.map(p -> p.getValue())
 							.flatMap(cs -> cs
 								.parallelStream()
-								.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea
-										&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea + EPSILON)
+								.filter(p -> p.getValue() > Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea.get()
+										&& p.getValue() < Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea.get() + EPSILON)
 								.map(Pair::getKey))
 							.collect(Collectors.toList());
 					
@@ -614,6 +623,11 @@ public class ImageController extends BaseController implements Initializable {
 				.createObjectBinding(() -> cells.isNull().get() ? null : createImage(cells.get()), cells);
 		fxRawImage.bind(rawImageBinding);
 		fxCells.bind(cellsBinding);
+		StringBinding lower = Bindings.createStringBinding(() -> String.format("%d", (long) (Math.pow(lowerBoundarySlider.getValue(), Math.E) * maxArea.get())), maxArea, lowerBoundarySlider.valueProperty());
+		lowerBoundaryLabel.textProperty().bind(lower);
+		StringBinding higher = Bindings.createStringBinding(() -> String.format("%d", (long) (Math.pow(higherBoundarySlider.getValue(), Math.E) * maxArea.get())), maxArea, higherBoundarySlider.valueProperty());
+		higherBoundaryLabel.textProperty().bind(higher);		
+	
 	}
 
 	private void initializeComponents(final URL location, final ResourceBundle resources) {
@@ -777,6 +791,10 @@ public class ImageController extends BaseController implements Initializable {
 				return null;
 			}
 		};
+	}
+
+	public void setFill(boolean fill) {
+		this.fill = fill;
 	}
 
 }
